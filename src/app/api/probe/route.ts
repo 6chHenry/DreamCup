@@ -1,0 +1,75 @@
+import { NextRequest, NextResponse } from "next/server";
+import { DreamStructuredSchema } from "@/lib/schema";
+import { MEMORY_PROBE_SYSTEM_PROMPT, MEMORY_PROBE_USER_PROMPT } from "@/lib/prompt-templates";
+import { parseLLMJson } from "@/lib/llm-utils";
+import { buildLLMRequestBody } from "@/lib/llm-request";
+
+export async function POST(request: NextRequest) {
+  try {
+    const { dreamStructured, conversationHistory, userAnswer } = await request.json();
+
+    if (!dreamStructured) {
+      return NextResponse.json({ error: "No dream data provided" }, { status: 400 });
+    }
+
+    const apiUrl = request.headers.get("x-api-url") || process.env.GEMINI_API_URL;
+    const apiKey = request.headers.get("x-api-key") || process.env.GEMINI_API_KEY;
+    const model = request.headers.get("x-model") || process.env.GEMINI_MODEL || "gpt-5.4-mini";
+
+    if (!apiUrl || !apiKey || !model) {
+      return NextResponse.json({ error: "LLM API not configured" }, { status: 500 });
+    }
+
+    const prompt = MEMORY_PROBE_USER_PROMPT(
+      JSON.stringify(dreamStructured, null, 2),
+      conversationHistory || "（对话刚开始）",
+      userAnswer
+    );
+
+    const requestBody = buildLLMRequestBody(
+      model,
+      [
+        { role: "system", content: MEMORY_PROBE_SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+      { temperature: 0.5, responseFormat: { type: "json_object" } }
+    );
+
+    const response = await fetch(`${apiUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("Probe API error:", error);
+      return NextResponse.json({ error: "LLM API call failed", detail: error }, { status: 500 });
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return NextResponse.json({ error: "Empty response from LLM" }, { status: 500 });
+    }
+
+    const result = parseLLMJson(content) as Record<string, unknown>;
+
+    if (result.updatedDream) {
+      try {
+        result.updatedDream = DreamStructuredSchema.parse(result.updatedDream);
+      } catch (validationError) {
+        console.error("Dream validation error:", validationError);
+      }
+    }
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Probe error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}

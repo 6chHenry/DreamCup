@@ -11,12 +11,42 @@ import type { Dream, DreamFlowStep, ProbeMessage } from "@/types/dream";
 import { messageFromErrorResponse } from "@/lib/llm-utils";
 import Link from "next/link";
 
+/** Client-visible keys only via NEXT_PUBLIC_* — set in `.env.local`, never commit secrets. */
+function publicEnv(name: string): string {
+  return process.env[name]?.trim() ?? "";
+}
+
 const MODEL_OPTIONS = [
-  { value: "gpt-5.4-mini", label: "GPT 5.4 Mini (openclaudecode)", apiUrl: "https://www.openclaudecode.cn/v1", apiKey: "sk-zpURIsonfImHJYd3WO9pHV3DGyyqQNmTTGObW6vU29uMlRZo" },
-  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4 (openclaudecode)", apiUrl: "https://www.openclaudecode.cn/v1", apiKey: "sk-UincVUyqAM6f9tuTClhVvkoKLCqJUgiIdx6I3WbLPnZTlN98" },
-  { value: "gemini-3-flash-preview", label: "Gemini 3 Flash (4Router)", apiUrl: "https://4Router.net/v1", apiKey: "sk-aP0IwE8BnfVLVkLyDcPTIjuZ3jaZpIHv2azuWFTnnAaTpoto" },
-  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (4Router)", apiUrl: "https://4Router.net/v1", apiKey: "sk-aP0IwE8BnfVLVkLyDcPTIjuZ3jaZpIHv2azuWFTnnAaTpoto" },
-  { value: "doubao-seed-2-0-mini-260215", label: "Doubao Seed 2.0 Mini (Doubao)", apiUrl: "https://ark.cn-beijing.volces.com/api/v3", apiKey: "ark-3813c0f1-867d-42d4-baa8-61bd6726fac9-77a54" },
+  {
+    value: "gpt-5.4-mini",
+    label: "GPT 5.4 Mini (openclaudecode)",
+    apiUrl: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_URL") || "https://www.openclaudecode.cn/v1",
+    apiKey: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_KEY_GPT"),
+  },
+  {
+    value: "claude-sonnet-4-6",
+    label: "Claude Sonnet 4 (openclaudecode)",
+    apiUrl: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_URL") || "https://www.openclaudecode.cn/v1",
+    apiKey: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_KEY_CLAUDE"),
+  },
+  {
+    value: "gemini-3-flash-preview",
+    label: "Gemini 3 Flash (4Router)",
+    apiUrl: publicEnv("NEXT_PUBLIC_LLM_4ROUTER_URL") || "https://4Router.net/v1",
+    apiKey: publicEnv("NEXT_PUBLIC_LLM_4ROUTER_KEY"),
+  },
+  {
+    value: "gemini-3.1-pro-preview",
+    label: "Gemini 3.1 Pro (4Router)",
+    apiUrl: publicEnv("NEXT_PUBLIC_LLM_4ROUTER_URL") || "https://4Router.net/v1",
+    apiKey: publicEnv("NEXT_PUBLIC_LLM_4ROUTER_KEY"),
+  },
+  {
+    value: "doubao-seed-2-0-mini-260215",
+    label: "Doubao Seed 2.0 Mini (Doubao)",
+    apiUrl: publicEnv("NEXT_PUBLIC_LLM_DOUBAO_URL") || "https://ark.cn-beijing.volces.com/api/v3",
+    apiKey: publicEnv("NEXT_PUBLIC_LLM_DOUBAO_KEY"),
+  },
 ];
 
 const STEP_LABELS: Record<DreamFlowStep, string> = {
