@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DREAM_POLISH_SYSTEM_PROMPT, DREAM_POLISH_USER_PROMPT } from "@/lib/prompt-templates";
-import { buildLLMRequestBody } from "@/lib/llm-request";
+import { buildLLMRequestBody, resolveOpenAICompatLLM } from "@/lib/llm-request";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,9 +10,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
     }
 
-    const apiUrl = request.headers.get("x-api-url") || process.env.GEMINI_API_URL;
-    const apiKey = request.headers.get("x-api-key") || process.env.GEMINI_API_KEY;
-    const model = request.headers.get("x-model") || process.env.GEMINI_MODEL || "gpt-5.4-mini";
+    const { apiUrl, apiKey, model } = resolveOpenAICompatLLM(request.headers);
 
     if (!apiUrl || !apiKey || !model) {
       return NextResponse.json({ error: "LLM API not configured" }, { status: 500 });

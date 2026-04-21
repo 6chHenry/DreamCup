@@ -22,6 +22,9 @@ export async function GET(
       ext === "mp3" ? "audio/mpeg" :
       ext === "wav" ? "audio/wav" :
       ext === "ogg" ? "audio/ogg" :
+      ext === "m4a" || ext === "aac" || ext === "mp4" ? "audio/mp4" :
+      ext === "caf" ? "audio/x-caf" :
+      ext === "flac" ? "audio/flac" :
       "application/octet-stream";
 
     return new NextResponse(buffer, {

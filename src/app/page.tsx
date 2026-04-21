@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Moon, BookOpen, Loader2, ArrowRight, SkipForward, Sparkles, Copy, Check, Film, ChevronDown, Users, Wand2 } from "lucide-react";
+import { Moon, BookOpen, Loader2, ArrowRight, SkipForward, Sparkles, Copy, Check, Film, ChevronDown, Users, Wand2, Upload } from "lucide-react";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import ProbeChat from "@/components/ProbeChat";
 import AudioPlayer from "@/components/AudioPlayer";
@@ -107,6 +107,25 @@ function withDraftSyncedToPolishHistory(
 
 const DEFAULT_LLM_MODEL = "gpt-5.4-mini";
 
+function audioFilenameForBlob(blob: Blob): string {
+  const t = (blob.type || "").toLowerCase();
+  if (t.includes("ogg")) return "recording.ogg";
+  if (t.includes("mpeg") || t.includes("mp3")) return "recording.mp3";
+  if (t.includes("wav")) return "recording.wav";
+  if (t.includes("mp4") || t.includes("m4a") || t.includes("aac")) return "recording.m4a";
+  return "recording.webm";
+}
+
+async function transcribeViaAsr(file: File | Blob, filename: string): Promise<{ text: string; audioFileName?: string }> {
+  const formData = new FormData();
+  formData.append("audio", file, filename);
+  const response = await fetch("/api/asr", { method: "POST", body: formData });
+  if (!response.ok) {
+    throw new Error(await messageFromErrorResponse(response));
+  }
+  return response.json();
+}
+
 export default function Home() {
   const {
     currentStep, setCurrentStep,
@@ -120,7 +139,8 @@ export default function Home() {
   } = useDreamStore();
 
   const [textInput, setTextInput] = useState("");
-  const [showTextInput, setShowTextInput] = useState(false);
+  const [showTextInput, setShowTextInput] = useState(true);
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
   const [probeComplete, setProbeComplete] = useState(false);
   const [scenePrompts, setScenePrompts] = useState<ScenePrompt[]>([]);
   const [sceneImages, setSceneImages] = useState<Array<{ sceneIndex: number; imageUrl: string; prompt: string; error?: string }>>([]);
@@ -164,34 +184,22 @@ export default function Home() {
         let text = browserTranscript;
 
         if (!text.trim()) {
-          const formData = new FormData();
-          formData.append("audio", audioBlob, "recording.webm");
-
-          const response = await fetch("/api/asr", { method: "POST", body: formData });
-          if (response.ok) {
-            const data = await response.json();
-            text = data.text;
-            if (data.audioFileName) {
-              setAudioFileName(data.audioFileName);
-              setAudioBlobUrl(`/api/audio/${data.audioFileName}`);
-            }
-          } else {
-            throw new Error("ASR failed");
+          const data = await transcribeViaAsr(audioBlob, audioFilenameForBlob(audioBlob));
+          text = data.text;
+          if (data.audioFileName) {
+            setAudioFileName(data.audioFileName);
+            URL.revokeObjectURL(blobUrl);
+            setAudioBlobUrl(`/api/audio/${data.audioFileName}`);
           }
         } else {
-          const formData = new FormData();
-          formData.append("audio", audioBlob, "recording.webm");
-
-          fetch("/api/asr", { method: "POST", body: formData }).then((response) => {
-            if (response.ok) {
-              response.json().then((data) => {
-                if (data.audioFileName) {
-                  setAudioFileName(data.audioFileName);
-                  setAudioBlobUrl(`/api/audio/${data.audioFileName}`);
-                }
-              });
-            }
-          }).catch(() => {});
+          transcribeViaAsr(audioBlob, audioFilenameForBlob(audioBlob))
+            .then((data) => {
+              if (data.audioFileName) {
+                setAudioFileName(data.audioFileName);
+                setAudioBlobUrl(`/api/audio/${data.audioFileName}`);
+              }
+            })
+            .catch(() => {});
         }
 
         setRawText(text);
@@ -257,6 +265,59 @@ export default function Home() {
       setIsPolishing(false);
     }
   };
+
+  async function handleUploadedAudio(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    setAudioBlobUrl(previewUrl);
+    setAudioFileName("");
+    setIsProcessing(true);
+    setCurrentStep("transcribing");
+    try {
+      const name =
+        file.name && !file.name.startsWith("blob") ? file.name : audioFilenameForBlob(file);
+      const data = await transcribeViaAsr(file, name);
+      const text = (data.text ?? "").trim();
+      if (data.audioFileName) {
+        setAudioFileName(data.audioFileName);
+        URL.revokeObjectURL(previewUrl);
+        setAudioBlobUrl(`/api/audio/${data.audioFileName}`);
+      }
+      setRawText(text);
+      setCurrentStep("polishing");
+      setIsProcessing(false);
+      if (text) {
+        await startPolish(text);
+      } else {
+        setPolishedText("");
+        setPolishMessages([]);
+      }
+    } catch (err) {
+      console.error("Upload ASR error:", err);
+      URL.revokeObjectURL(previewUrl);
+      setAudioBlobUrl("");
+      setIsProcessing(false);
+      setCurrentStep("recording");
+    }
+  }
+
+  function handleGoToPolishRawOnly() {
+    const t = textInput.trim();
+    if (!t) return;
+    setRawText(t);
+    setCurrentStep("polishing");
+    setPolishedText(t);
+    setPolishMessages([
+      {
+        id: crypto.randomUUID(),
+        role: "system",
+        content: "已保留原文。可在下方润色稿中直接修改，有空再点「修改」调用 AI；或直接确认进入下一步。",
+      },
+      { id: crypto.randomUUID(), role: "assistant", content: t },
+    ]);
+  }
 
   const handlePolishRequest = async () => {
     if (!polishInput.trim() || !rawText) return;
@@ -493,7 +554,7 @@ export default function Home() {
   const handleNewDream = () => {
     if (audioBlobUrl) URL.revokeObjectURL(audioBlobUrl);
     reset();
-    setTextInput(""); setShowTextInput(false); setProbeComplete(false);
+    setTextInput(""); setShowTextInput(true); setProbeComplete(false);
     setScenePrompts([]); setSceneImages([]); setIsRendering(false);
     setVideoPrompt(""); setVideoUrl(""); setIsGeneratingVideo(false);
     setAudioFileName("");
@@ -565,20 +626,58 @@ export default function Home() {
           {currentStep === "recording" && (
             <motion.div key="recording" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full max-w-lg flex flex-col items-center">
               <h2 className="text-2xl font-light text-white/80 mb-2">你梦到了什么？</h2>
-              <p className="text-sm text-white/40 mb-8">刚醒来时记忆最鲜活，按下按钮开始口述</p>
-              <VoiceRecorder onRecordingComplete={handleRecordingComplete} />
-              <div className="mt-8 w-full">
-                <button onClick={() => setShowTextInput(!showTextInput)} className="text-xs text-white/30 hover:text-white/50 transition-colors">
-                  {showTextInput ? "收起文字输入" : "或者用文字描述梦境 →"}
-                </button>
+              <p className="text-sm text-white/40 mb-2 text-center">刚醒时先记下来：口述、上传昨晚录音、或直接打字——都会进入润色与后续步骤</p>
+
+              <div className="w-full flex flex-col sm:flex-row gap-2 mb-6">
+                <label className="w-full flex items-center justify-center gap-2 cursor-pointer rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white/70 hover:bg-white/[0.07] transition-colors">
+                  <Upload size={18} className="text-indigo-400 shrink-0" />
+                  <span>上传录音转写（mp3 / wav / ogg / webm 等）</span>
+                  <input
+                    ref={audioFileInputRef}
+                    type="file"
+                    accept="audio/*,.mp3,.wav,.ogg,.webm,.m4a,.opus,.aac"
+                    className="hidden"
+                    onChange={handleUploadedAudio}
+                  />
+                </label>
+              </div>
+
+              <VoiceRecorder onRecordingComplete={handleRecordingComplete} disabled={isProcessing} />
+
+              <div className="mt-8 w-full border-t border-white/10 pt-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-white/45">文字速记（可跳过口述）</span>
+                  <button type="button" onClick={() => setShowTextInput(!showTextInput)} className="text-xs text-white/30 hover:text-white/50 transition-colors">
+                    {showTextInput ? "收起" : "展开"}
+                  </button>
+                </div>
                 {showTextInput && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-4">
-                    <textarea value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="描述你的梦境..." rows={4}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 resize-none" />
-                    <button onClick={handleTextInput} disabled={!textInput.trim()}
-                      className="mt-2 w-full py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-sm font-medium transition-colors disabled:opacity-50">
-                      开始解析
-                    </button>
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-2">
+                    <textarea
+                      value={textInput}
+                      onChange={(e) => setTextInput(e.target.value)}
+                      placeholder="醒来先打几句碎片也行，有空再润色、补全…"
+                      rows={5}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 resize-none"
+                    />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        onClick={handleTextInput}
+                        disabled={!textInput.trim()}
+                        className="flex-1 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        进入润色并开始 AI 整理
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleGoToPolishRawOnly}
+                        disabled={!textInput.trim()}
+                        className="flex-1 py-2.5 rounded-lg border border-white/15 bg-white/[0.03] text-sm text-white/80 hover:bg-white/[0.06] transition-colors disabled:opacity-50"
+                      >
+                        仅保留原文，稍后整理
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </div>

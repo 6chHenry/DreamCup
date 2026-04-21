@@ -75,11 +75,21 @@ export default function VoiceRecorder({ onRecordingComplete, disabled }: VoiceRe
       });
       streamRef.current = stream;
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : "audio/webm",
-      });
+      /** 豆包极速版支持 WAV/MP3/OGG OPUS；优先 OGG Opus 以便服务端识别（WebM 常不被支持） */
+      const preferredTypes = [
+        "audio/ogg;codecs=opus",
+        "audio/ogg",
+        "audio/webm;codecs=opus",
+        "audio/webm",
+      ];
+      let recordMime = preferredTypes.find((t) => MediaRecorder.isTypeSupported(t)) || "audio/webm";
+      let mediaRecorder: MediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: recordMime });
+      } catch {
+        mediaRecorder = new MediaRecorder(stream);
+        recordMime = mediaRecorder.mimeType || "audio/webm";
+      }
 
       chunksRef.current = [];
 
@@ -90,7 +100,7 @@ export default function VoiceRecorder({ onRecordingComplete, disabled }: VoiceRe
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(chunksRef.current, { type: recordMime });
         const finalTranscript = transcriptRef.current;
         stream.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
