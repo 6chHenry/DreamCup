@@ -46,3 +46,5 @@ data/
 
 # local agent / IDE artifacts
 .trae/
+AGENTS.md
+CLAUDE.md
