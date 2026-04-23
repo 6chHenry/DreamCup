@@ -70,12 +70,32 @@ export const EmotionSchema = z.object({
   trigger: nullableString,
 });
 
+/** 模型常把五感写成 string[]；折叠为一条文案，与 Sensory 类型一致。 */
+const sensoryTextField = z
+  .union([
+    z.string(),
+    z.array(z.union([z.string(), z.number(), z.boolean()])),
+    z.null(),
+    z.undefined(),
+  ])
+  .transform((v): string | undefined => {
+    if (v == null || v === undefined) return undefined;
+    if (Array.isArray(v)) {
+      const parts = v
+        .map((x) => (typeof x === "string" ? x.trim() : String(x)))
+        .filter((s) => s.length > 0);
+      return parts.length ? parts.join("；") : undefined;
+    }
+    const s = v.trim();
+    return s.length ? s : undefined;
+  });
+
 export const SensorySchema = z.object({
-  auditory: nullableString,
-  tactile: nullableString,
-  olfactory: nullableString,
-  temperature: nullableString,
-  kinesthetic: nullableString,
+  auditory: sensoryTextField,
+  tactile: sensoryTextField,
+  olfactory: sensoryTextField,
+  temperature: sensoryTextField,
+  kinesthetic: sensoryTextField,
 });
 
 export const AnomalySchema = z.object({
@@ -121,7 +141,10 @@ export const DreamStructuredSchema = z.object({
   characters: charactersWithIds,
   narrative: NarrativeSchema,
   emotions: z.array(EmotionSchema),
-  sensory: SensorySchema,
+  sensory: z.preprocess(
+    (val) => (val === null || val === undefined ? {} : val),
+    SensorySchema
+  ),
   anomalies: z.array(AnomalySchema),
   meta: DreamMetaSchema,
   lowConfidence: z.array(LowConfidenceItemSchema),
@@ -133,6 +156,12 @@ export const DreamSceneImageSchema = z.object({
   imageUrl: z.string(),
   promptUsed: z.string(),
   isSelected: z.boolean(),
+  error: z.string().optional(),
+});
+
+export const DreamScenePromptSchema = z.object({
+  sceneIndex: z.number(),
+  prompts: z.array(z.string()),
 });
 
 export const DreamSchema = z.object({
@@ -141,7 +170,10 @@ export const DreamSchema = z.object({
   rawText: z.string(),
   structured: DreamStructuredSchema,
   audioUrl: z.string().optional(),
+  audioFileName: z.string().optional(),
   scenes: z.array(DreamSceneImageSchema),
+  sceneRenderPrompts: z.array(DreamScenePromptSchema).optional(),
+  videoUrl: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

@@ -30,6 +30,8 @@ export async function POST(request: NextRequest) {
       audioUrl: body.audioUrl,
       audioFileName: body.audioFileName,
       scenes: body.scenes || [],
+      sceneRenderPrompts: body.sceneRenderPrompts,
+      videoUrl: body.videoUrl,
       createdAt: body.createdAt || new Date().toISOString(),
       updatedAt: body.updatedAt || new Date().toISOString(),
     };

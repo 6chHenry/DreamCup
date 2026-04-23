@@ -85,9 +85,14 @@ async function callLLMWithRetry(
         throw new Error("Empty response from LLM");
       }
 
-      const parsed = parseLLMJson(content);
+      const parsed = parseLLMJson(content) as Record<string, unknown>;
+      // extract title before Zod strips unknown keys
+      const title =
+        typeof parsed.title === "string" && parsed.title.trim()
+          ? parsed.title.trim()
+          : "";
       const validated = DreamStructuredSchema.parse(parsed);
-      return validated;
+      return { title, ...validated };
     } catch (error) {
       lastError = error;
       console.error(`Parse attempt ${attempt + 1} failed:`, error);

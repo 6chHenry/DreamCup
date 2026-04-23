@@ -20,31 +20,19 @@ function publicEnv(name: string): string {
 const MODEL_OPTIONS = [
   {
     value: "gpt-5.4-mini",
-    label: "GPT 5.4 Mini (openclaudecode)",
+    label: "GPT 5.4 Mini",
     apiUrl: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_URL") || "https://www.openclaudecode.cn/v1",
     apiKey: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_KEY_GPT"),
   },
   {
     value: "claude-sonnet-4-6",
-    label: "Claude Sonnet 4 (openclaudecode)",
+    label: "Claude Sonnet 4.6",
     apiUrl: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_URL") || "https://www.openclaudecode.cn/v1",
     apiKey: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_KEY_CLAUDE"),
   },
   {
-    value: "gemini-3-flash-preview",
-    label: "Gemini 3 Flash (4Router)",
-    apiUrl: publicEnv("NEXT_PUBLIC_LLM_4ROUTER_URL") || "https://4Router.net/v1",
-    apiKey: publicEnv("NEXT_PUBLIC_LLM_4ROUTER_KEY"),
-  },
-  {
-    value: "gemini-3.1-pro-preview",
-    label: "Gemini 3.1 Pro (4Router)",
-    apiUrl: publicEnv("NEXT_PUBLIC_LLM_4ROUTER_URL") || "https://4Router.net/v1",
-    apiKey: publicEnv("NEXT_PUBLIC_LLM_4ROUTER_KEY"),
-  },
-  {
     value: "doubao-seed-2-0-mini-260215",
-    label: "Doubao Seed 2.0 Mini (Doubao)",
+    label: "Doubao Seed 2.0 Mini",
     apiUrl: publicEnv("NEXT_PUBLIC_LLM_DOUBAO_URL") || "https://ark.cn-beijing.volces.com/api/v3",
     apiKey: publicEnv("NEXT_PUBLIC_LLM_DOUBAO_KEY"),
   },
@@ -393,12 +381,14 @@ export default function Home() {
         setCurrentStep("polishing");
         return;
       }
-      const structured = await parseResponse.json();
+      const parseData = await parseResponse.json() as { title?: string } & Dream["structured"];
+      // parse API returns { title, ...DreamStructured }; strip title before using as structured
+      const { title: llmTitle, ...structured } = parseData;
 
       const dream: Dream = {
         id: crypto.randomUUID(),
-        title: structured.narrative.summary?.slice(0, 20) || "未命名梦境",
-        rawText: textToParse, structured, scenes: [],
+        title: llmTitle?.trim() || (structured as Dream["structured"]).narrative?.summary?.slice(0, 20) || "未命名梦境",
+        rawText: textToParse, structured: structured as Dream["structured"], scenes: [],
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       };
       setCurrentDream(dream);
@@ -594,9 +584,17 @@ export default function Home() {
         body: JSON.stringify({
           ...currentDream,
           audioFileName,
+          sceneRenderPrompts: scenePrompts.map((sp) => ({
+            sceneIndex: sp.sceneIndex,
+            prompts: sp.prompts,
+          })),
           scenes: sceneImages.map((img, i) => ({
-            id: crypto.randomUUID(), sceneIndex: img.sceneIndex,
-            imageUrl: img.imageUrl, promptUsed: img.prompt, isSelected: i === 0,
+            id: crypto.randomUUID(),
+            sceneIndex: img.sceneIndex,
+            imageUrl: img.imageUrl,
+            promptUsed: img.prompt,
+            error: img.error,
+            isSelected: i === 0,
           })),
           videoUrl,
         }),

@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "demo": "npm run build && next start -p 3000",
+    "demo:dev": "next dev -p 3000",
     "lint": "eslint"
   },
   "dependencies": {

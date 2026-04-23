@@ -51,6 +51,59 @@ async function generateScenePromptsWithLLM(
   return parseLLMJson(promptsContent) as ScenePromptPayload[];
 }
 
+function parseImageGenerationResponse(data: {
+  data?: Array<{ b64_json?: string; url?: string }>;
+}): string {
+  const imageData = data.data?.[0];
+  if (!imageData) return "";
+  if (imageData.b64_json) {
+    return `data:image/png;base64,${imageData.b64_json}`;
+  }
+  if (imageData.url) {
+    return imageData.url;
+  }
+  return "";
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+function isRateLimitErrorPayload(bodyText: string): boolean {
+  const t = bodyText.toLowerCase();
+  if (t.includes("rate_limit") || t.includes("no available accounts")) return true;
+  try {
+    const j = JSON.parse(bodyText) as { error?: { code?: string; type?: string; message?: string } };
+    const code = `${j.error?.code || ""} ${j.error?.type || ""}`.toLowerCase();
+    const msg = (j.error?.message || "").toLowerCase();
+    return code.includes("rate_limit") || msg.includes("rate_limit") || msg.includes("no available accounts");
+  } catch {
+    return false;
+  }
+}
+
+/** 中转站在池子耗尽时返回 rate_limit_exceeded；带指数退避重试。 */
+async function grokImageFetch(url: string, init: RequestInit, logLabel: string): Promise<Response> {
+  const maxAttempts = Math.max(1, Math.min(10, Number(process.env.GROK_IMAGE_RATE_LIMIT_RETRIES) || 6));
+  const baseMs = Math.max(400, Number(process.env.GROK_IMAGE_RATE_LIMIT_BASE_MS) || 2200);
+  let lastStatus = 500;
+  let lastText = "";
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch(url, init);
+    lastStatus = res.status;
+    if (res.ok) return res;
+    lastText = await res.text();
+    if (attempt + 1 < maxAttempts && isRateLimitErrorPayload(lastText)) {
+      const wait = Math.min(60_000, baseMs * 2 ** attempt + Math.random() * 600);
+      console.warn(`${logLabel}: rate limit, retry ${attempt + 2}/${maxAttempts} after ${Math.round(wait)}ms`);
+      await sleep(wait);
+      continue;
+    }
+    break;
+  }
+  return new Response(lastText, { status: lastStatus });
+}
+
 async function generateSceneImagesFromPrompts(
   scenePrompts: ScenePromptPayload[],
   dreamStructured: DreamStructured
@@ -62,12 +115,12 @@ async function generateSceneImagesFromPrompts(
     error?: string;
   }>
 > {
-  const doubaoApiUrl = process.env.DOUBAO_API_URL;
-  const doubaoApiKey = process.env.DOUBAO_API_KEY;
-  const doubaoImageModel = process.env.DOUBAO_IMAGE_MODEL || "doubao-seedream-4-5-251128";
+  const grokApiUrl = process.env.GROK_API_URL?.replace(/\/$/, "");
+  const grokApiKey = process.env.GROK_API_KEY;
+  const grokImageModel = process.env.GROK_IMAGE_MODEL || "grok-imagine-image-pro";
 
-  if (!doubaoApiUrl || !doubaoApiKey) {
-    throw new Error("图像生成 API 未配置（DOUBAO_API_URL / DOUBAO_API_KEY）");
+  if (!grokApiUrl || !grokApiKey) {
+    throw new Error("图像生成 API 未配置（GROK_API_URL / GROK_API_KEY）");
   }
 
   const scenes = dreamStructured.scenes || [];
@@ -80,9 +133,17 @@ async function generateSceneImagesFromPrompts(
     error?: string;
   }> = [];
 
+  let didGeneratePriorScene = false;
+  const gapMsRaw = Number(process.env.GROK_IMAGE_SCENE_GAP_MS);
+  const sceneGapMs = Number.isFinite(gapMsRaw) && gapMsRaw >= 0 ? gapMsRaw : 2800;
+
   for (const scenePrompt of scenePrompts) {
     const prompt = scenePrompt.prompts[0];
     if (!prompt) continue;
+
+    if (didGeneratePriorScene && sceneGapMs > 0) {
+      await sleep(sceneGapMs);
+    }
 
     const scene = scenes[scenePrompt.sceneIndex];
     const sceneDesc = scene?.description || "";
@@ -105,49 +166,70 @@ async function generateSceneImagesFromPrompts(
       : prompt;
 
     try {
-      const imageBody: Record<string, unknown> = {
-        model: doubaoImageModel,
+      const authHeaders = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${grokApiKey}`,
+      };
+
+      const generationBody: Record<string, unknown> = {
+        model: grokImageModel,
         prompt: promptFinal,
-        size: "2K",
         response_format: "b64_json",
-        stream: false,
-        extra_body: {
-          watermark: true,
-          sequential_image_generation: "auto",
-          sequential_image_generation_options: {
-            max_images: 1,
-          },
+        resolution: "2k",
+        aspect_ratio: "16:9",
+      };
+
+      const editsBody: Record<string, unknown> = {
+        model: grokImageModel,
+        prompt: promptFinal,
+        response_format: "b64_json",
+        resolution: "2k",
+        image: {
+          url: `data:image/png;base64,${refBase64}`,
+          type: "image_url",
         },
       };
-      if (refBase64) {
-        imageBody.image = refBase64;
-      }
 
-      let response = await fetch(`${doubaoApiUrl}/images/generations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${doubaoApiKey}`,
-        },
-        body: JSON.stringify(imageBody),
-      });
+      const label = `Scene ${scenePrompt.sceneIndex} image`;
+      let response: Response;
+      if (refBase64) {
+        response = await grokImageFetch(
+          `${grokApiUrl}/images/edits`,
+          {
+            method: "POST",
+            headers: authHeaders,
+            body: JSON.stringify(editsBody),
+          },
+          `${label} (edits)`
+        );
+      } else {
+        response = await grokImageFetch(
+          `${grokApiUrl}/images/generations`,
+          {
+            method: "POST",
+            headers: authHeaders,
+            body: JSON.stringify(generationBody),
+          },
+          `${label} (generations)`
+        );
+      }
 
       if (!response.ok && refBase64) {
         console.warn(
-          `Scene ${scenePrompt.sceneIndex}: image API failed with reference, retrying without reference image`
+          `Scene ${scenePrompt.sceneIndex}: image edit API failed, retrying text-to-image without reference`
         );
-        const { image: _drop, ...rest } = imageBody;
-        response = await fetch(`${doubaoApiUrl}/images/generations`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${doubaoApiKey}`,
+        response = await grokImageFetch(
+          `${grokApiUrl}/images/generations`,
+          {
+            method: "POST",
+            headers: authHeaders,
+            body: JSON.stringify({
+              ...generationBody,
+              prompt,
+            }),
           },
-          body: JSON.stringify({
-            ...rest,
-            prompt,
-          }),
-        });
+          `${label} (generations, no ref)`
+        );
       }
 
       if (!response.ok) {
@@ -174,16 +256,7 @@ async function generateSceneImagesFromPrompts(
       }
 
       const data = await response.json();
-
-      let imageUrl = "";
-      if (data.data && data.data[0]) {
-        const imageData = data.data[0];
-        if (imageData.b64_json) {
-          imageUrl = `data:image/png;base64,${imageData.b64_json}`;
-        } else if (imageData.url) {
-          imageUrl = imageData.url;
-        }
-      }
+      const imageUrl = parseImageGenerationResponse(data);
 
       if (!imageUrl) {
         sceneImages.push({
@@ -208,6 +281,8 @@ async function generateSceneImagesFromPrompts(
         prompt: promptFinal,
         error: (error as Error).message,
       });
+    } finally {
+      didGeneratePriorScene = true;
     }
   }
 

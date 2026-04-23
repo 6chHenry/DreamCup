@@ -92,6 +92,14 @@ export interface DreamSceneImage {
   imageUrl: string;
   promptUsed: string;
   isSelected: boolean;
+  /** 生图接口返回的失败原因（若有） */
+  error?: string;
+}
+
+/** 与 /api/render 的 scenePrompts 一致，用于详情页展示与再次生图 */
+export interface DreamScenePrompt {
+  sceneIndex: number;
+  prompts: string[];
 }
 
 export interface Dream {
@@ -102,6 +110,8 @@ export interface Dream {
   audioUrl?: string;
   audioFileName?: string;
   scenes: DreamSceneImage[];
+  /** 各场景生图提示词（优先于 scenes[].promptUsed 展示多候选） */
+  sceneRenderPrompts?: DreamScenePrompt[];
   videoUrl?: string;
   createdAt: string;
   updatedAt: string;
