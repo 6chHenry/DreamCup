@@ -148,6 +148,17 @@ export function deletePerson(id: string): boolean {
   return result;
 }
 
+/** 仅从库中移除条目，不删除参考图文件（合并人物时若把对方参考图并入保留方，需避免 unlink 共用文件）。 */
+export function removePersonEntryKeepReferenceFile(id: string): boolean {
+  const persons = getPersons();
+  const result = persons.delete(id);
+  if (result) {
+    setPersonsMap(persons);
+    writePersonsToFile(persons);
+  }
+  return result;
+}
+
 /** 根据梦境 structured.characters 更新人物库（新建或合并出现次数）。 */
 export function syncPersonsFromDream(dream: Dream, lastSeen?: string): void {
   const seenAt = lastSeen ?? dream.updatedAt ?? dream.createdAt;

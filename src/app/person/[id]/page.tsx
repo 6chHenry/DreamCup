@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Moon, ArrowLeft, Users, Calendar, Link2, ImagePlus, Trash2, Loader2 } from "lucide-react";
+import { Moon, ArrowLeft, Users, Calendar, Link2, ImagePlus, Trash2, Loader2, Pencil, X } from "lucide-react";
 import type { Person, Dream } from "@/types/dream";
+import { messageFromErrorResponse } from "@/lib/llm-utils";
 
 export default function PersonDetailPage() {
   const params = useParams();
@@ -12,14 +13,15 @@ export default function PersonDetailPage() {
   const [dreams, setDreams] = useState<Dream[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refUploading, setRefUploading] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameBusy, setRenameBusy] = useState(false);
+  const [tagsDraft, setTagsDraft] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [tagsBusy, setTagsBusy] = useState(false);
+  const [tagsToast, setTagsToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (params.id) {
-      fetchPerson(params.id as string);
-    }
-  }, [params.id]);
-
-  const fetchPerson = async (id: string) => {
+  const fetchPerson = useCallback(async (id: string) => {
     try {
       const [personRes, dreamsRes] = await Promise.all([
         fetch(`/api/persons/${id}`, { cache: "no-store" }),
@@ -29,6 +31,7 @@ export default function PersonDetailPage() {
       if (personRes.ok) {
         const personData = await personRes.json();
         setPerson(personData);
+        setTagsDraft([...personData.relationships]);
 
         if (dreamsRes.ok) {
           const allDreams: Dream[] = await dreamsRes.json();
@@ -43,7 +46,13 @@ export default function PersonDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (params.id) {
+      fetchPerson(params.id as string);
+    }
+  }, [params.id, fetchPerson]);
 
   const referenceImageUrl = person?.referenceImageFilename
     ? `/api/person-reference/${encodeURIComponent(person.referenceImageFilename)}`
@@ -69,6 +78,74 @@ export default function PersonDetailPage() {
     } finally {
       setRefUploading(false);
     }
+  };
+
+  const handleRenameConfirm = async () => {
+    if (!person || !renameDraft.trim()) return;
+    setRenameBusy(true);
+    setTagsToast(null);
+    try {
+      const res = await fetch("/api/persons/reorganize-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rename: { personId: person.id, newName: renameDraft.trim() },
+        }),
+      });
+      if (!res.ok) {
+        setTagsToast(await messageFromErrorResponse(res));
+        return;
+      }
+      const j = await res.json();
+      setTagsToast(`已重命名，同步了 ${j.dreamsUpdated ?? 0} 条梦境中的称呼`);
+      setRenameOpen(false);
+      await fetchPerson(person.id);
+    } catch (e) {
+      setTagsToast(e instanceof Error ? e.message : "请求失败");
+    } finally {
+      setRenameBusy(false);
+    }
+  };
+
+  const handleSaveTags = async () => {
+    if (!person) return;
+    setTagsBusy(true);
+    setTagsToast(null);
+    try {
+      const res = await fetch(`/api/persons/${person.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ relationships: tagsDraft }),
+      });
+      if (!res.ok) {
+        setTagsToast(await messageFromErrorResponse(res));
+        return;
+      }
+      const updated = await res.json();
+      setPerson(updated);
+      setTagsDraft([...updated.relationships]);
+      setTagsToast("标签已保存");
+    } catch (e) {
+      setTagsToast(e instanceof Error ? e.message : "请求失败");
+    } finally {
+      setTagsBusy(false);
+    }
+  };
+
+  const addTagFromInput = () => {
+    const s = tagInput.trim();
+    if (!s) return;
+    const k = s.toLowerCase();
+    if (tagsDraft.some((t) => t.toLowerCase() === k)) {
+      setTagInput("");
+      return;
+    }
+    setTagsDraft((prev) => [...prev, s]);
+    setTagInput("");
+  };
+
+  const removeTagAt = (index: number) => {
+    setTagsDraft((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleReferenceDelete = async () => {
@@ -163,8 +240,21 @@ export default function PersonDetailPage() {
               </div>
             )}
           </div>
-          <div>
-            <h2 className="text-2xl font-light text-white/90">{person.name}</h2>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-2xl font-light text-white/90">{person.name}</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setRenameDraft(person.name);
+                  setRenameOpen(true);
+                }}
+                className="flex items-center gap-1 text-xs text-indigo-400/80 hover:text-indigo-300 px-2 py-1 rounded-lg hover:bg-indigo-500/10"
+              >
+                <Pencil size={12} />
+                重命名
+              </button>
+            </div>
             <div className="flex items-center gap-4 mt-2">
               <span className="text-sm text-white/40 flex items-center gap-1.5">
                 <Calendar size={12} />
@@ -223,20 +313,88 @@ export default function PersonDetailPage() {
           )}
         </section>
 
-        {person.relationships.length > 0 && (
-          <section>
-            <h3 className="text-sm font-medium text-white/50 mb-3">关系标签</h3>
-            <div className="flex flex-wrap gap-2">
-              {person.relationships.map((rel, i) => (
-                <span
-                  key={i}
-                  className="text-xs px-3 py-1.5 rounded-full bg-indigo-500/10 text-indigo-300/80 border border-indigo-500/20"
+        <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <h3 className="text-sm font-medium text-white/70 mb-1">人物标签</h3>
+          <p className="text-xs text-white/35 mb-3">可自定义；与梦境角色里的「关系」独立保存，用于人物库分类。</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {tagsDraft.map((rel, i) => (
+              <span
+                key={`${rel}-${i}`}
+                className="inline-flex items-center gap-1 text-xs pl-3 pr-1 py-1.5 rounded-full bg-indigo-500/10 text-indigo-300/80 border border-indigo-500/20"
+              >
+                {rel}
+                <button
+                  type="button"
+                  onClick={() => removeTagAt(i)}
+                  className="p-0.5 rounded-full hover:bg-white/10 text-white/40 hover:text-white/70"
+                  title="移除"
                 >
-                  {rel}
-                </span>
-              ))}
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addTagFromInput();
+                }
+              }}
+              placeholder="输入标签后按回车添加"
+              className="flex-1 min-w-[12rem] bg-white/[0.06] border border-white/12 rounded-lg px-3 py-2 text-sm text-white/85 placeholder:text-white/25 focus:outline-none focus:border-indigo-500/40"
+            />
+            <button
+              type="button"
+              onClick={addTagFromInput}
+              className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-xs text-white/70"
+            >
+              添加
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveTags}
+              disabled={tagsBusy}
+              className="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-xs font-medium disabled:opacity-40"
+            >
+              {tagsBusy ? "保存中…" : "保存标签"}
+            </button>
+          </div>
+          {tagsToast && <p className="text-xs text-white/45 mt-2">{tagsToast}</p>}
+        </section>
+
+        {renameOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+            <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0c0c14] p-6 shadow-xl">
+              <h3 className="text-sm font-medium text-white/90 mb-3">重命名人物</h3>
+              <p className="text-xs text-white/35 mb-3">会同步更新各条梦境结构化数据中的称呼。</p>
+              <input
+                value={renameDraft}
+                onChange={(e) => setRenameDraft(e.target.value)}
+                className="w-full mb-4 bg-white/[0.06] border border-white/12 rounded-lg px-3 py-2 text-sm text-white/85"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRenameOpen(false)}
+                  className="px-3 py-2 rounded-lg text-xs text-white/50 hover:bg-white/10"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRenameConfirm}
+                  disabled={renameBusy || !renameDraft.trim()}
+                  className="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-xs font-medium disabled:opacity-40"
+                >
+                  {renameBusy ? "保存中…" : "保存"}
+                </button>
+              </div>
             </div>
-          </section>
+          </div>
         )}
 
         <section>

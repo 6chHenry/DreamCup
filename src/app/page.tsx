@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Moon, BookOpen, Loader2, ArrowRight, SkipForward, Sparkles, Copy, Check, Film, ChevronDown, Users, Wand2, Upload, Info } from "lucide-react";
 import DreamHeroHeadline from "@/components/DreamHeroHeadline";
@@ -16,32 +16,12 @@ import {
   type SceneImageModelId,
 } from "@/lib/scene-image-model";
 import Link from "next/link";
-
-/** Client-visible keys only via NEXT_PUBLIC_* — set in `.env.local`, never commit secrets. */
-function publicEnv(name: string): string {
-  return process.env[name]?.trim() ?? "";
-}
-
-const MODEL_OPTIONS = [
-  {
-    value: "gpt-5.4-mini",
-    label: "GPT 5.4 Mini",
-    apiUrl: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_URL") || "https://www.openclaudecode.cn/v1",
-    apiKey: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_KEY_GPT"),
-  },
-  {
-    value: "claude-sonnet-4-6",
-    label: "Claude Sonnet 4.6",
-    apiUrl: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_URL") || "https://www.openclaudecode.cn/v1",
-    apiKey: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_KEY_CLAUDE"),
-  },
-  {
-    value: "doubao-seed-2-0-mini-260215",
-    label: "Doubao Seed 2.0 Mini",
-    apiUrl: publicEnv("NEXT_PUBLIC_LLM_DOUBAO_URL") || "https://ark.cn-beijing.volces.com/api/v3",
-    apiKey: publicEnv("NEXT_PUBLIC_LLM_DOUBAO_KEY"),
-  },
-];
+import {
+  LLM_MODEL_OPTIONS,
+  DEFAULT_LLM_MODEL,
+  readStoredLlmModel,
+  writeStoredLlmModel,
+} from "@/lib/llm-model-options";
 
 const STEP_LABELS: Record<DreamFlowStep, string> = {
   recording: "口述梦境",
@@ -99,8 +79,6 @@ function withDraftSyncedToPolishHistory(
   return next;
 }
 
-const DEFAULT_LLM_MODEL = "gpt-5.4-mini";
-
 function audioFilenameForBlob(blob: Blob): string {
   const t = (blob.type || "").toLowerCase();
   if (t.includes("ogg")) return "recording.ogg";
@@ -148,6 +126,10 @@ export default function Home() {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_LLM_MODEL);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
 
+  useEffect(() => {
+    setSelectedModel(readStoredLlmModel());
+  }, []);
+
   // Polish step states
   const [polishedText, setPolishedText] = useState("");
   const [polishMessages, setPolishMessages] = useState<PolishMessage[]>([]);
@@ -156,7 +138,7 @@ export default function Home() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [sceneImageModel, setSceneImageModel] = useState<SceneImageModelId>(DEFAULT_SCENE_IMAGE_MODEL);
 
-  const selectedModelConfig = MODEL_OPTIONS.find(m => m.value === selectedModel) || MODEL_OPTIONS[0];
+  const selectedModelConfig = LLM_MODEL_OPTIONS.find(m => m.value === selectedModel) || LLM_MODEL_OPTIONS[0];
 
   const confirmedPolishText = useMemo(
     () => getFinalPolishTextForParse(polishMessages, polishedText, rawText).trim(),
@@ -643,15 +625,19 @@ export default function Home() {
               onClick={() => setShowModelDropdown(!showModelDropdown)}
               className="flex items-center gap-2 text-xs text-white/50 hover:text-white/80 transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
             >
-              <span>{MODEL_OPTIONS.find(m => m.value === selectedModel)?.label || selectedModel}</span>
+              <span>{LLM_MODEL_OPTIONS.find(m => m.value === selectedModel)?.label || selectedModel}</span>
               <ChevronDown size={12} className={`transition-transform ${showModelDropdown ? 'rotate-180' : ''}`} />
             </button>
             {showModelDropdown && (
               <div className="absolute right-0 top-full mt-1 w-56 rounded-lg bg-gray-900 border border-white/10 shadow-xl z-50 overflow-hidden">
-                {MODEL_OPTIONS.map((model) => (
+                {LLM_MODEL_OPTIONS.map((model) => (
                   <button
                     key={model.value}
-                    onClick={() => { setSelectedModel(model.value); setShowModelDropdown(false); }}
+                    onClick={() => {
+                      setSelectedModel(model.value);
+                      writeStoredLlmModel(model.value);
+                      setShowModelDropdown(false);
+                    }}
                     className={`w-full px-3 py-2 text-left text-xs hover:bg-white/10 transition-colors ${
                       selectedModel === model.value ? "text-indigo-400 bg-indigo-500/10" : "text-white/60"
                     }`}

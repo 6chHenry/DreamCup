@@ -124,7 +124,8 @@ export async function generateGptImage2SceneImage(opts: {
     const form = new FormData();
     form.set("model", "gpt-image-2");
     form.set("prompt", opts.prompt);
-    form.set("size", "1536x1024");
+    /** 与梦境详情页 `aspect-video`（16:9）一致；1792×1024 ≈ 1.75:1 */
+    form.set("size", "1792x1024");
     form.set(
       "image",
       new Blob([new Uint8Array(opts.refPngBuffer)], { type: "image/png" }),
@@ -148,7 +149,7 @@ export async function generateGptImage2SceneImage(opts: {
       model: "gpt-image-2",
       prompt: opts.prompt,
       n: 1,
-      size: "1536x1024",
+      size: "1792x1024",
       response_format: "b64_json",
     }),
   });

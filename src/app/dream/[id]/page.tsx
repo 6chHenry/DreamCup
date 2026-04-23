@@ -20,8 +20,17 @@ import {
   Wand2,
   Video,
   Play,
+  Brain,
 } from "lucide-react";
 import type { Dream, DreamSceneImage } from "@/types/dream";
+import { messageFromErrorResponse } from "@/lib/llm-utils";
+import {
+  LLM_MODEL_OPTIONS,
+  DEFAULT_LLM_MODEL,
+  getLlmModelOption,
+  readStoredLlmModel,
+  writeStoredLlmModel,
+} from "@/lib/llm-model-options";
 import {
   DEFAULT_SCENE_IMAGE_MODEL,
   SCENE_IMAGE_MODEL_OPTIONS,
@@ -112,6 +121,23 @@ export default function DreamDetailPage() {
   const [generatingVideo, setGeneratingVideo] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
 
+  // AI 梦境解读（寓意 / 象征）
+  const [interpretModel, setInterpretModel] = useState(DEFAULT_LLM_MODEL);
+  const [interpretMenuOpen, setInterpretMenuOpen] = useState(false);
+  const [interpretLoading, setInterpretLoading] = useState(false);
+  const [interpretText, setInterpretText] = useState<string | null>(null);
+  const [interpretError, setInterpretError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setInterpretModel(readStoredLlmModel());
+  }, []);
+
+  useEffect(() => {
+    if (!dream) return;
+    const saved = dream.aiInterpretation?.trim();
+    setInterpretText(saved || null);
+  }, [dream?.id, dream?.aiInterpretation]);
+
   const fetchDream = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/dreams/${id}`);
@@ -152,6 +178,51 @@ export default function DreamDetailPage() {
     },
     []
   );
+
+  const handleDreamInterpret = async () => {
+    if (!dream) return;
+    const cfg = getLlmModelOption(interpretModel);
+    setInterpretLoading(true);
+    setInterpretError(null);
+    try {
+      const res = await fetch(`/api/dreams/${dream.id}/interpret`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-model": cfg.value,
+          "x-api-url": cfg.apiUrl,
+          /** 与首页 modelHeaders 一致：可无（仅服务端 OPENCLAUDECODE_* 时由 API 解析） */
+          "x-api-key": cfg.apiKey,
+        },
+      });
+      if (!res.ok) {
+        setInterpretError(await messageFromErrorResponse(res));
+        return;
+      }
+      const data = (await res.json()) as { interpretation?: string };
+      const text = data.interpretation?.trim();
+      if (!text) {
+        setInterpretError("未返回解读内容");
+        return;
+      }
+      setInterpretText(text);
+      const saveRes = await fetch(`/api/dreams/${dream.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aiInterpretation: text }),
+      });
+      if (!saveRes.ok) {
+        setInterpretError("解读已生成，但保存到日志失败，请稍后重试");
+        return;
+      }
+      const updated = (await saveRes.json()) as Dream;
+      setDream(updated);
+    } catch (e) {
+      setInterpretError(e instanceof Error ? e.message : "请求失败");
+    } finally {
+      setInterpretLoading(false);
+    }
+  };
 
   // save edited prompts only
   const handleSavePrompts = async () => {
@@ -309,21 +380,30 @@ export default function DreamDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sceneImageUrls, dreamStructured: dream.structured }),
       });
-      const result = await res.json() as {
+      const result = (await res.json()) as {
         status?: string;
         videoUrl?: string;
         message?: string;
         detail?: string;
       };
 
+      if (!res.ok) {
+        setVideoError(result.message ?? result.detail ?? "视频生成失败");
+        return;
+      }
+
       if (result.videoUrl) {
-        // persist to dreams.json
-        await fetch(`/api/dreams/${dream.id}`, {
+        const patchRes = await fetch(`/api/dreams/${dream.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ videoUrl: result.videoUrl }),
         });
-        setDream((prev) => prev ? { ...prev, videoUrl: result.videoUrl } : prev);
+        if (patchRes.ok) {
+          setDream((await patchRes.json()) as Dream);
+        } else {
+          setDream((prev) => (prev ? { ...prev, videoUrl: result.videoUrl } : prev));
+          setVideoError("视频已生成，但保存到日志失败，请刷新后重试");
+        }
       } else {
         setVideoError(result.message ?? result.detail ?? "视频生成失败");
       }
@@ -405,7 +485,15 @@ ${dream.structured.characters
 
 ${dream.structured.narrative.summary}
 
-## 情绪
+${
+  dream.aiInterpretation?.trim()
+    ? `## AI 梦境解读\n\n${dream.aiInterpretation.trim()}\n\n`
+    : ""
+}${
+  dream.videoUrl?.trim()
+    ? `## 梦境视频\n\n${dream.videoUrl.trim()}\n\n`
+    : ""
+}## 情绪
 
 ${dream.structured.emotions
   .map((e) => `- ${e.type} (强度: ${e.intensity}/10)${e.trigger ? ` — 触发: ${e.trigger}` : ""}`)
@@ -936,6 +1024,85 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
           <p className="text-sm text-white/40 leading-relaxed whitespace-pre-wrap">
             {dream.rawText}
           </p>
+        </section>
+
+        {/* ── AI 梦境解读 ── */}
+        <section className="rounded-xl border border-violet-500/15 bg-violet-500/[0.04] p-5">
+          <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <h2 className="text-sm font-medium text-white/70 flex items-center gap-2">
+                <Brain size={14} className="text-violet-400 shrink-0" />
+                AI 梦境解读
+              </h2>
+              <p className="text-xs text-white/35 leading-relaxed text-pretty">
+                从象征、情绪与内在需求等角度提供参考，非医学诊断或占卜。
+              </p>
+              <p className="text-xs text-white/35 leading-relaxed text-pretty">
+                模型与首页「处理梦境文字」相同，可在下栏任选。
+              </p>
+            </div>
+            <div className="flex w-full shrink-0 flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
+              <div className="relative min-w-0 flex-1 sm:flex-initial sm:min-w-[11rem]">
+                <button
+                  type="button"
+                  onClick={() => setInterpretMenuOpen((o) => !o)}
+                  className="flex w-full items-center justify-between gap-2 text-xs text-white/55 hover:text-white/80 px-3 py-2 rounded-lg bg-white/5 border border-white/10 sm:w-auto sm:min-w-[11rem]"
+                >
+                  <span className="truncate text-left">
+                    {LLM_MODEL_OPTIONS.find((m) => m.value === interpretModel)?.label ?? interpretModel}
+                  </span>
+                  <ChevronDown size={12} className={`shrink-0 transition-transform ${interpretMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+                {interpretMenuOpen && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-white/10 bg-[#14141c] shadow-xl overflow-hidden sm:left-auto sm:right-0 sm:min-w-[13rem] sm:w-52">
+                    {LLM_MODEL_OPTIONS.map((m) => (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => {
+                          setInterpretModel(m.value);
+                          writeStoredLlmModel(m.value);
+                          setInterpretMenuOpen(false);
+                        }}
+                        className={`w-full px-3 py-2.5 text-left text-xs hover:bg-white/10 ${
+                          interpretModel === m.value ? "text-violet-300 bg-violet-500/10" : "text-white/65"
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleDreamInterpret}
+                disabled={interpretLoading}
+                className="flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg bg-violet-500/25 hover:bg-violet-500/35 text-sm text-violet-200 border border-violet-500/35 disabled:opacity-45"
+              >
+                {interpretLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {interpretText ? "重新解读" : "生成解读"}
+              </button>
+            </div>
+          </div>
+          {interpretError && (
+            <div className="mb-3 text-xs text-rose-400/90 flex items-start gap-2">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+              <span>{interpretError}</span>
+            </div>
+          )}
+          {interpretText ? (
+            <div className="text-sm text-white/70 leading-relaxed whitespace-pre-wrap border border-white/5 rounded-lg bg-black/20 px-4 py-3">
+              {interpretText}
+            </div>
+          ) : (
+            !interpretLoading && (
+              <div className="space-y-1 text-xs text-white/25 leading-relaxed text-pretty">
+                <p>选择模型后点击「生成解读」。</p>
+                <p>所选模型会与首页「处理梦境文字」同步（localStorage）。</p>
+              </div>
+            )
+          )}
         </section>
       </main>
     </div>

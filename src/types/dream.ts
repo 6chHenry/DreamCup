@@ -113,6 +113,8 @@ export interface Dream {
   /** 各场景生图提示词（优先于 scenes[].promptUsed 展示多候选） */
   sceneRenderPrompts?: DreamScenePrompt[];
   videoUrl?: string;
+  /** 详情页「AI 梦境解读」生成后持久化 */
+  aiInterpretation?: string;
   createdAt: string;
   updatedAt: string;
 }

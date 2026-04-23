@@ -4,7 +4,7 @@ import { Moon, ArrowLeft, BookOpen, Users, Sparkles } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "关于 · 掬梦 DreamCup",
-  description: "为什么做这款产品：在梦还没消散之前，把它轻轻接住。",
+  description: "为什么做这款产品：在梦还没消散之前，把它轻轻捧住。",
 };
 
 export default function AboutPage() {
@@ -43,7 +43,7 @@ export default function AboutPage() {
       <main className="flex-1 px-6 py-10 max-w-2xl mx-auto w-full">
         <p className="text-xs uppercase tracking-widest text-indigo-400/80 mb-3">DreamCup</p>
         <h2 className="text-2xl sm:text-3xl font-light text-white/95 leading-snug mb-8">
-          在梦还没消散之前，把它轻轻接住。
+          在梦还没消散之前，把它轻轻捧住。
         </h2>
 
         <div className="space-y-8 text-sm text-white/65 leading-relaxed">
