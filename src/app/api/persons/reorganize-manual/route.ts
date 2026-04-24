@@ -70,14 +70,14 @@ export async function POST(request: NextRequest) {
         : [];
       const tagRaw = Array.isArray(a.tags) ? a.tags.filter((x): x is string => typeof x === "string") : [];
       const seen = new Set<string>();
-      const relationships: string[] = [];
+      const tags: string[] = [];
       for (const raw of tagRaw) {
         const s = raw.trim();
         if (!s) continue;
         const k = s.toLowerCase();
         if (seen.has(k)) continue;
         seen.add(k);
-        relationships.push(s);
+        tags.push(s);
       }
       const now = new Date().toISOString();
       const person: Person = {
@@ -86,7 +86,8 @@ export async function POST(request: NextRequest) {
         appearances: dreamIds.length || 1,
         firstSeen: now,
         lastSeen: now,
-        relationships,
+        tags,
+        relationshipNotes: [],
         dreamIds,
         createdAt: now,
         updatedAt: now,

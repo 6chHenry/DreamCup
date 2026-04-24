@@ -291,19 +291,22 @@ export default function VoiceRecorder({ onRecordingComplete, disabled }: VoiceRe
         <motion.button
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
           onClick={startRecording}
           disabled={disabled}
-          className="w-32 h-32 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="group w-32 h-32 rounded-full border-2 border-white/18 bg-white/[0.06] flex items-center justify-center shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition-colors duration-200 hover:border-white/28 hover:bg-white/[0.1] disabled:opacity-45 disabled:cursor-not-allowed"
+          title="开始口述"
         >
-          <Mic size={48} className="text-white" />
+          <Mic
+            size={48}
+            className="text-[#f0f1fa] transition-colors group-hover:text-white"
+            strokeWidth={1.25}
+          />
         </motion.button>
       )}
 
       {!isRecording && (
-        <p className="text-white/50 text-sm">
-          点击开始录音，口述你的梦境
+        <p className="text-dream-subtle text-sm text-center max-w-xs leading-relaxed">
+          点一下，像俯身贴近水面——把梦说出来就好。
         </p>
       )}
     </div>

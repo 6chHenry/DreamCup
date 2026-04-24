@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
+/* 梦境视觉：深夜为底、月光为文、极少装饰。避免多枚「彩虹渐变 CTA」堆叠。 */
 :root {
-  --background: #050510;
-  --foreground: #ededed;
+  --background: #05040c;
+  --foreground: #e8e9f2;
+  --dream-moon: #eef0fa;
+  --dream-mist: rgba(235, 238, 255, 0.06);
+  --dream-veil-top: rgba(120, 130, 200, 0.09);
+  --dream-veil-corner: rgba(50, 35, 90, 0.07);
+  --radius-dream: 16px;
+  --radius-dream-pill: 999px;
 }
 
 @theme inline {
@@ -10,10 +17,206 @@
   --color-foreground: var(--foreground);
 }
 
-body {
-  background: var(--background);
+body.dream-body {
+  background-color: var(--background);
   color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+}
+
+/* 全站柔光：静态、低不透明度，不做动画 blob */
+.dream-veil {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 70% at 50% -15%, var(--dream-veil-top), transparent 50%),
+    radial-gradient(90% 60% at 100% 0%, var(--dream-veil-corner), transparent 45%),
+    radial-gradient(80% 50% at 0% 100%, var(--dream-veil-corner), transparent 40%);
+}
+
+/* 极低对比的「水感」漂移：叠在夜色上，不抢正文 */
+@media (prefers-reduced-motion: no-preference) {
+  .dream-veil::after {
+    content: "";
+    position: absolute;
+    inset: -30%;
+    background:
+      radial-gradient(ellipse 85% 65% at 25% 35%, rgba(95, 125, 195, 0.11), transparent 58%),
+      radial-gradient(ellipse 70% 55% at 78% 65%, rgba(55, 65, 120, 0.07), transparent 52%),
+      radial-gradient(ellipse 50% 45% at 50% 50%, rgba(130, 155, 220, 0.04), transparent 60%);
+    animation: dream-veil-drift 32s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
+  @keyframes dream-veil-drift {
+    0% {
+      transform: translate(0%, 0%) scale(1) rotate(0deg);
+    }
+    33% {
+      transform: translate(1.8%, -1.2%) scale(1.03) rotate(0.25deg);
+    }
+    66% {
+      transform: translate(-1.2%, 1.6%) scale(1.02) rotate(-0.2deg);
+    }
+    100% {
+      transform: translate(0.5%, 0.8%) scale(1.04) rotate(0.1deg);
+    }
+  }
+}
+
+/* 鼠标涟漪（由 DreamEffects 挂载元素） */
+@media (prefers-reduced-motion: no-preference) {
+  .dream-ripple-ring {
+    width: 0;
+    height: 0;
+    border: 1px solid rgba(200, 215, 255, 0.22);
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
+    animation: dream-ripple-expand 0.95s ease-out forwards;
+    box-shadow: 0 0 0 0 rgba(180, 200, 255, 0.06);
+  }
+
+  @keyframes dream-ripple-expand {
+    0% {
+      width: 0;
+      height: 0;
+      opacity: 0.4;
+    }
+    100% {
+      width: 140px;
+      height: 140px;
+      opacity: 0;
+    }
+  }
+
+  /* 梦境式碎裂：慢、含混、边缘化（blur），避免「硬玻璃碴」感 */
+  .dream-shard-dream {
+    animation: dream-shard-dream 1.5s cubic-bezier(0.22, 0.6, 0.28, 1) forwards;
+  }
+
+  @keyframes dream-shard-dream {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.4) rotate(0deg);
+      filter: blur(0px);
+    }
+    14% {
+      opacity: 0.7;
+      transform: translate(-50%, -50%) scale(1.05) rotate(0deg);
+      filter: blur(0.5px);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(
+          calc(-50% + var(--tx, 0px)),
+          calc(-50% + var(--ty, 0px))
+        )
+        rotate(var(--rot, 6deg)) scale(0.55);
+      filter: blur(12px);
+    }
+  }
+
+  .dream-shatter-bloom {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(
+      circle,
+      rgba(240, 245, 255, 0.35) 0%,
+      rgba(200, 210, 240, 0.08) 45%,
+      transparent 70%
+    );
+    animation: dream-shatter-bloom 1.15s ease-out forwards;
+  }
+
+  @keyframes dream-shatter-bloom {
+    0% {
+      width: 6px;
+      height: 6px;
+      opacity: 0.75;
+    }
+    100% {
+      width: 140px;
+      height: 140px;
+      opacity: 0;
+    }
+  }
+}
+
+.dream-surface {
+  background: var(--dream-mist);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-dream);
+}
+
+.dream-surface-ghost {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-dream);
+}
+
+/* 主 CTA：白月按钮（高对比、少「AI 紫条」感） */
+.btn-dream-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-dream);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25;
+  background: #f4f5fb;
+  color: #0a0914;
+  transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-dream-primary:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.btn-dream-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-dream-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-dream);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(240, 242, 255, 0.9);
+  background: rgba(255, 255, 255, 0.04);
+  transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-dream-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.btn-dream-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.text-dream-muted {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.text-dream-subtle {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 @keyframes cursor-blink {
@@ -31,6 +234,10 @@ body {
   .dream-hero-cursor {
     animation: none;
     opacity: 0.85;
+  }
+
+  .dream-veil::after {
+    display: none;
   }
 }
 

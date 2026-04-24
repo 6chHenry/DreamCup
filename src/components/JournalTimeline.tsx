@@ -43,7 +43,7 @@ export default function JournalTimeline({
       {Object.entries(groupedByDate).map(([date, dateDreams]) => (
         <div key={date}>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-2 h-2 rounded-full bg-indigo-500" />
+            <div className="w-2 h-2 rounded-full bg-white/35 ring-4 ring-white/[0.06]" />
             <h3 className="text-sm font-medium text-white/50">{date}</h3>
             <div className="flex-1 h-px bg-white/10" />
           </div>

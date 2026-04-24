@@ -613,23 +613,25 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <Moon className="text-indigo-400" size={24} />
-          <h1 className="text-lg font-semibold text-white/90">掬梦</h1>
-          <span className="text-xs text-white/30">DreamCup AI</span>
+      <header className="flex items-center justify-between gap-3 px-5 py-4 sm:px-6 border-b border-white/[0.06] bg-[#05040c]/75 backdrop-blur-md">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          <Moon className="shrink-0 text-sky-100/70" size={22} strokeWidth={1.5} />
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-medium tracking-tight text-[#f0f1fa]">掬梦</h1>
+            <p className="text-[10px] sm:text-xs text-white/35 truncate">DreamCup · 捕获尚未碎掉的梦</p>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <div className="relative">
             <button
               onClick={() => setShowModelDropdown(!showModelDropdown)}
-              className="flex items-center gap-2 text-xs text-white/50 hover:text-white/80 transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+              className="flex items-center gap-2 text-xs text-white/50 hover:text-white/85 transition-colors px-3 py-1.5 rounded-[var(--radius-dream)] border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]"
             >
               <span>{LLM_MODEL_OPTIONS.find(m => m.value === selectedModel)?.label || selectedModel}</span>
               <ChevronDown size={12} className={`transition-transform ${showModelDropdown ? 'rotate-180' : ''}`} />
             </button>
             {showModelDropdown && (
-              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg bg-gray-900 border border-white/10 shadow-xl z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-[var(--radius-dream)] border border-white/10 bg-[#0a0914]/95 backdrop-blur-md shadow-2xl z-50 overflow-hidden">
                 {LLM_MODEL_OPTIONS.map((model) => (
                   <button
                     key={model.value}
@@ -638,8 +640,8 @@ export default function Home() {
                       writeStoredLlmModel(model.value);
                       setShowModelDropdown(false);
                     }}
-                    className={`w-full px-3 py-2 text-left text-xs hover:bg-white/10 transition-colors ${
-                      selectedModel === model.value ? "text-indigo-400 bg-indigo-500/10" : "text-white/60"
+                    className={`w-full px-3 py-2.5 text-left text-xs transition-colors ${
+                      selectedModel === model.value ? "text-white bg-white/10" : "text-white/60 hover:bg-white/8 hover:text-white/85"
                     }`}
                   >
                     <div>{model.label}</div>
@@ -648,42 +650,78 @@ export default function Home() {
               </div>
             )}
           </div>
-          <Link href="/persons" className="flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors">
-            <Users size={16} />
-            人物库
+          <Link
+            href="/persons"
+            className="flex items-center gap-1 text-[11px] sm:text-xs text-white/45 hover:text-white/85 transition-colors"
+            title="人物库"
+          >
+            <Users size={15} />
+            <span className="hidden min-[400px]:inline">人物</span>
           </Link>
-          <Link href="/journal" className="flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors">
-            <BookOpen size={16} />
-            梦境日志
+          <Link
+            href="/journal"
+            className="flex items-center gap-1 text-[11px] sm:text-xs text-white/45 hover:text-white/85 transition-colors"
+            title="梦境日志"
+          >
+            <BookOpen size={15} />
+            <span className="hidden min-[400px]:inline">日志</span>
           </Link>
-          <Link href="/about" className="flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors">
-            <Info size={16} />
-            关于
+          <Link
+            href="/about"
+            className="flex items-center gap-1 text-[11px] sm:text-xs text-white/45 hover:text-white/85 transition-colors"
+            title="关于"
+          >
+            <Info size={15} />
+            <span className="hidden min-[400px]:inline">关于</span>
           </Link>
         </div>
       </header>
 
-      <div className="px-6 py-2">
-        <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-          <motion.div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} />
+      <div className="px-5 sm:px-6 py-3 max-w-4xl mx-auto w-full">
+        <div className="h-px bg-white/[0.07] rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-white/35 rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.5 }}
+          />
         </div>
-        <div className="flex justify-between mt-1">
+        <div className="hidden sm:flex justify-between mt-2 gap-0.5 overflow-x-auto pb-0.5">
           {Object.entries(STEP_LABELS).map(([step, label]) => (
-            <span key={step} className={`text-[10px] ${currentStep === step ? "text-indigo-400" : "text-white/20"}`}>{label}</span>
+            <span
+              key={step}
+              className={`text-[9px] uppercase tracking-wider shrink-0 ${
+                currentStep === step ? "text-white/70" : "text-white/22"
+              }`}
+            >
+              {label}
+            </span>
           ))}
         </div>
+        <p className="sm:hidden text-[10px] text-white/30 mt-1.5 text-center">
+          {STEP_LABELS[currentStep]}
+        </p>
       </div>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+      <main className="flex-1 flex flex-col items-center justify-center px-5 sm:px-6 py-10 md:py-16">
         <AnimatePresence mode="wait">
           {currentStep === "recording" && (
-            <motion.div key="recording" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full max-w-lg flex flex-col items-center">
+            <motion.div
+              key="recording"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.35 }}
+              className="w-full max-w-lg flex flex-col items-center"
+            >
               <DreamHeroHeadline />
-              <p className="text-sm text-white/40 mb-2 text-center">刚醒时先记下来：口述、上传昨晚录音、或直接打字——都会进入润色与后续步骤</p>
+              <p className="text-sm text-dream-subtle mt-1 mb-8 text-center max-w-sm leading-relaxed text-pretty">
+                刚醒时脑子最软：口述、上传录音、或只打几行字——之后都会交给你慢慢整理。
+              </p>
 
               <div className="w-full flex flex-col sm:flex-row gap-2 mb-6">
-                <label className="w-full flex items-center justify-center gap-2 cursor-pointer rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white/70 hover:bg-white/[0.07] transition-colors">
-                  <Upload size={18} className="text-indigo-400 shrink-0" />
+                <label className="w-full flex items-center justify-center gap-2 cursor-pointer rounded-[var(--radius-dream)] border border-white/12 bg-white/[0.04] px-4 py-3.5 text-sm text-white/72 hover:bg-white/[0.07] transition-colors">
+                  <Upload size={18} className="text-white/55 shrink-0" />
                   <span>上传录音转写（mp3 / wav / ogg / webm 等）</span>
                   <input
                     ref={audioFileInputRef}
@@ -697,38 +735,38 @@ export default function Home() {
 
               <VoiceRecorder onRecordingComplete={handleRecordingComplete} disabled={isProcessing} />
 
-              <div className="mt-8 w-full border-t border-white/10 pt-6">
+              <div className="mt-10 w-full border-t border-white/[0.07] pt-8">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-white/45">文字速记（可跳过口述）</span>
-                  <button type="button" onClick={() => setShowTextInput(!showTextInput)} className="text-xs text-white/30 hover:text-white/50 transition-colors">
+                  <span className="text-xs text-white/40">文字速记（可跳过口述）</span>
+                  <button type="button" onClick={() => setShowTextInput(!showTextInput)} className="text-xs text-white/35 hover:text-white/60 transition-colors cursor-pointer">
                     {showTextInput ? "收起" : "展开"}
                   </button>
                 </div>
                 {showTextInput && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-2">
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-3">
                     <textarea
                       value={textInput}
                       onChange={(e) => setTextInput(e.target.value)}
-                      placeholder="醒来先打几句碎片也行，有空再润色、补全…"
+                      placeholder="醒来先打几句碎片也好……"
                       rows={5}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 resize-none"
+                      className="w-full dream-surface-ghost rounded-[var(--radius-dream)] px-4 py-3 text-sm text-white/88 placeholder-white/32 focus:outline-none focus:ring-1 focus:ring-white/20 resize-none"
                     />
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2.5">
                       <button
                         type="button"
                         onClick={handleTextInput}
                         disabled={!textInput.trim()}
-                        className="flex-1 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-sm font-medium transition-colors disabled:opacity-50"
+                        className="btn-dream-primary flex-1 py-2.5 disabled:opacity-50"
                       >
-                        进入润色并开始 AI 整理
+                        进入润色并整理
                       </button>
                       <button
                         type="button"
                         onClick={handleGoToPolishRawOnly}
                         disabled={!textInput.trim()}
-                        className="flex-1 py-2.5 rounded-lg border border-white/15 bg-white/[0.03] text-sm text-white/80 hover:bg-white/[0.06] transition-colors disabled:opacity-50"
+                        className="btn-dream-secondary flex-1 py-2.5 disabled:opacity-50"
                       >
-                        仅保留原文，稍后整理
+                        只留原文
                       </button>
                     </div>
                   </motion.div>
@@ -739,7 +777,7 @@ export default function Home() {
 
           {currentStep === "transcribing" && (
             <motion.div key="transcribing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full max-w-lg flex flex-col items-center gap-4">
-              <Loader2 className="animate-spin text-indigo-400" size={48} />
+              <Loader2 className="animate-spin text-white/40" size={48} />
               <p className="text-white/60">正在将语音转写为文字...</p>
               {audioBlobUrl && <div className="w-full mt-2"><AudioPlayer src={audioBlobUrl} /></div>}
               {rawText && (
@@ -753,20 +791,23 @@ export default function Home() {
 
           {currentStep === "polishing" && (
             <motion.div key="polishing" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full max-w-2xl h-[70vh] flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-medium text-white/80"><Wand2 size={18} className="inline mr-2 text-indigo-400" />文本润色</h2>
-                <span className="text-xs text-white/30">让梦境描述更通顺，忠于原文</span>
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <h2 className="text-lg font-medium text-white/88 flex items-center gap-2">
+                  <Wand2 size={18} className="text-white/45 shrink-0" strokeWidth={1.5} />
+                  文本润色
+                </h2>
+                <span className="text-xs text-white/32 text-right max-w-[14rem]">顺一顺口气，不擅自编故事</span>
               </div>
               {audioBlobUrl && <div className="mb-3"><AudioPlayer src={audioBlobUrl} /></div>}
 
               {rawText && (
-                <div className="mb-3 rounded-xl bg-white/[0.02] border border-white/10 p-3">
-                  <p className="text-[10px] text-white/30 mb-1 uppercase tracking-wider">原始文本</p>
-                  <p className="text-xs text-white/40 whitespace-pre-wrap line-clamp-3">{rawText}</p>
+                <div className="mb-3 dream-surface-ghost p-3">
+                  <p className="text-[10px] text-white/30 mb-1 uppercase tracking-widest">原始文本</p>
+                  <p className="text-xs text-white/45 whitespace-pre-wrap line-clamp-3">{rawText}</p>
                 </div>
               )}
 
-              <div className="flex-1 rounded-2xl bg-white/[0.02] border border-white/10 overflow-hidden flex flex-col">
+              <div className="flex-1 dream-surface-ghost overflow-hidden flex flex-col rounded-[1.1rem]">
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {polishMessages.length === 0 && isPolishing && (
                     <div className="flex items-center gap-2 text-white/30">
@@ -778,10 +819,10 @@ export default function Home() {
                     <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm ${
                         msg.role === "user"
-                          ? "bg-indigo-500/20 text-white/80"
+                          ? "bg-white/10 text-white/88 border border-white/10"
                           : msg.role === "system"
-                          ? "bg-white/5 text-white/40 text-xs"
-                          : "bg-white/[0.05] text-white/70 border border-white/10"
+                          ? "bg-white/[0.04] text-white/45 text-xs"
+                          : "bg-white/[0.04] text-white/75 border border-white/[0.08]"
                       }`}>
                         <p className="whitespace-pre-wrap">{msg.content}</p>
                       </div>
@@ -802,13 +843,13 @@ export default function Home() {
                       value={polishInput}
                       onChange={(e) => setPolishInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handlePolishRequest()}
-                      placeholder="提出修改意见，例如：把第三句删掉..."
-                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50"
+                      placeholder="提出修改意见，例如：把第三句删掉…"
+                      className="flex-1 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/32 focus:outline-none focus:ring-1 focus:ring-white/20"
                     />
                     <button
                       onClick={handlePolishRequest}
                       disabled={!polishInput.trim() || isPolishing}
-                      className="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-sm transition-colors disabled:opacity-50"
+                      className="btn-dream-primary px-4 py-2 text-sm disabled:opacity-50"
                     >
                       修改
                     </button>
@@ -827,12 +868,12 @@ export default function Home() {
                   disabled={isPolishing}
                   rows={6}
                   placeholder="模型生成后将显示在此，可直接增删改；小改动无需再点「修改」对话。"
-                  className="w-full min-h-[7.5rem] max-h-[30vh] resize-y bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white/85 placeholder:text-white/25 focus:outline-none focus:border-indigo-500/45 disabled:opacity-50 disabled:cursor-not-allowed whitespace-pre-wrap"
+                  className="w-full min-h-[7.5rem] max-h-[30vh] resize-y dream-surface-ghost rounded-[var(--radius-dream)] px-3 py-2.5 text-sm text-white/88 placeholder:text-white/28 focus:outline-none focus:ring-1 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed whitespace-pre-wrap"
                 />
               </div>
 
               {parseError && (
-                <p className="w-full text-sm text-red-400/90 bg-red-500/10 border border-red-500/25 rounded-xl px-3 py-2 whitespace-pre-wrap">
+                <p className="w-full text-sm text-red-300/95 bg-red-500/10 border border-red-500/20 rounded-[var(--radius-dream)] px-3 py-2 whitespace-pre-wrap">
                   结构化提取失败：{parseError}
                 </p>
               )}
@@ -840,9 +881,9 @@ export default function Home() {
                 <button
                   onClick={handleConfirmPolish}
                   disabled={isPolishing || !confirmedPolishText}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="btn-dream-primary w-full py-3.5 text-sm font-medium flex items-center justify-center gap-2"
                 >
-                  确认并进入结构化提取 <ArrowRight size={16} />
+                  确认并结构化 <ArrowRight size={16} />
                 </button>
               </motion.div>
             </motion.div>
@@ -850,7 +891,7 @@ export default function Home() {
 
           {currentStep === "parsing" && (
             <motion.div key="parsing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full max-w-lg flex flex-col items-center gap-4">
-              <Loader2 className="animate-spin text-indigo-400" size={48} />
+              <Loader2 className="animate-spin text-white/40" size={48} />
               <p className="text-white/60">正在提取梦境结构...</p>
               {audioBlobUrl && <div className="w-full mt-2"><AudioPlayer src={audioBlobUrl} /></div>}
               {rawText && (
@@ -865,7 +906,10 @@ export default function Home() {
           {currentStep === "probing" && currentDream && (
             <motion.div key="probing" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full max-w-2xl h-[70vh] flex flex-col">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-medium text-white/80"><Sparkles size={18} className="inline mr-2 text-indigo-400" />记忆补全</h2>
+                <h2 className="text-lg font-medium text-white/88 flex items-center gap-2">
+                  <Sparkles size={18} className="text-white/40 shrink-0" strokeWidth={1.5} />
+                  记忆补全
+                </h2>
                 {!probeComplete && (
                   <button onClick={handleSkipProbe} className="flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition-colors">
                     <SkipForward size={14} />跳过补全
@@ -873,13 +917,15 @@ export default function Home() {
                 )}
               </div>
               {audioBlobUrl && <div className="mb-3"><AudioPlayer src={audioBlobUrl} /></div>}
-              <div className="flex-1 rounded-2xl bg-white/[0.02] border border-white/10 overflow-hidden">
+              <div className="flex-1 dream-surface-ghost overflow-hidden rounded-[1.1rem]">
                 <ProbeChat messages={probeMessages} onSendMessage={handleProbeAnswer} isProcessing={isProcessing} isComplete={probeComplete} />
               </div>
               {probeComplete && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4">
-                  <button onClick={handleGeneratePrompts}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-sm font-medium transition-all flex items-center justify-center gap-2">
+                  <button
+                    onClick={handleGeneratePrompts}
+                    className="btn-dream-primary w-full py-3.5 text-sm font-medium flex items-center justify-center gap-2"
+                  >
                     生成场景提示词 <ArrowRight size={16} />
                   </button>
                 </motion.div>
@@ -889,23 +935,26 @@ export default function Home() {
 
           {currentStep === "rendering" && (
             <motion.div key="rendering" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full max-w-3xl">
-              <h2 className="text-lg font-medium text-white/80 mb-4"><Sparkles size={18} className="inline mr-2 text-indigo-400" />场景生图</h2>
+              <h2 className="text-lg font-medium text-white/88 mb-4 flex items-center gap-2">
+                <Sparkles size={18} className="text-white/40 shrink-0" strokeWidth={1.5} />
+                场景生图
+              </h2>
               {audioBlobUrl && <div className="mb-4"><AudioPlayer src={audioBlobUrl} /></div>}
 
               {isLoadingPrompts ? (
                 <div className="flex flex-col items-center gap-4 py-12">
-                  <Loader2 className="animate-spin text-indigo-400" size={40} />
+                  <Loader2 className="animate-spin text-white/40" size={40} />
                   <p className="text-white/50">正在生成场景提示词...</p>
                 </div>
               ) : isRenderingImages ? (
                 <div className="flex flex-col items-center gap-4 py-12">
-                  <Loader2 className="animate-spin text-indigo-400" size={40} />
+                  <Loader2 className="animate-spin text-white/40" size={40} />
                   <p className="text-white/50">正在生成场景图片...</p>
                 </div>
               ) : sceneImages.length > 0 ? (
                 <div className="space-y-6">
                   {sceneImages.map((img) => (
-                    <div key={img.sceneIndex} className="rounded-xl bg-white/[0.03] border border-white/10 overflow-hidden">
+                    <div key={img.sceneIndex} className="dream-surface-ghost overflow-hidden">
                       <div className="px-4 py-3 border-b border-white/5 bg-white/[0.02]">
                         <h4 className="text-sm font-medium text-white/70">场景 {img.sceneIndex + 1}</h4>
                         <p className="text-xs text-white/40 mt-1">{img.prompt}</p>
@@ -922,9 +971,13 @@ export default function Home() {
                       )}
                     </div>
                   ))}
-                  <button onClick={handleGenerateVideo}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-sm font-medium transition-all flex items-center justify-center gap-2">
-                    <Film size={16} />生成梦境视频 <ArrowRight size={16} />
+                  <button
+                    onClick={handleGenerateVideo}
+                    className="btn-dream-primary w-full py-3.5 text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <Film size={16} />
+                    生成梦境视频
+                    <ArrowRight size={16} />
                   </button>
                 </div>
               ) : scenePrompts.length > 0 ? (
@@ -936,7 +989,7 @@ export default function Home() {
                     const primaryKey = `${scene.sceneIndex}-0`;
                     const primaryValue = promptDraftsByScene[scene.sceneIndex] ?? scene.prompts[0] ?? "";
                     return (
-                      <div key={scene.sceneIndex} className="rounded-xl bg-white/[0.03] border border-white/10 overflow-hidden">
+                      <div key={scene.sceneIndex} className="dream-surface-ghost overflow-hidden">
                         <div className="px-4 py-3 border-b border-white/5 bg-white/[0.02]">
                           <h4 className="text-sm font-medium text-white/70">场景 {scene.sceneIndex + 1}</h4>
                           {scene.description && (
@@ -946,7 +999,7 @@ export default function Home() {
                         <div className="p-4 space-y-3">
                           <div>
                             <div className="flex items-center justify-between gap-2 mb-1.5">
-                              <span className="text-[10px] text-indigo-300/80 uppercase tracking-wider">主提示词（用于生图）</span>
+                              <span className="text-[10px] text-white/50 uppercase tracking-wider">主提示词（用于生图）</span>
                               <button
                                 type="button"
                                 onClick={() => handleCopyPrompt(primaryValue, primaryKey)}
@@ -969,7 +1022,7 @@ export default function Home() {
                                 }))
                               }
                               rows={5}
-                              className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white/85 placeholder:text-white/25 focus:outline-none focus:border-indigo-500/45 resize-y min-h-[6rem]"
+                              className="w-full dream-surface-ghost rounded-[var(--radius-dream)] px-3 py-2.5 text-sm text-white/88 placeholder:text-white/28 focus:outline-none focus:ring-1 focus:ring-white/20 resize-y min-h-[6rem]"
                               placeholder="编辑用于生成该场景画面的中文提示词"
                             />
                           </div>
@@ -1009,7 +1062,7 @@ export default function Home() {
                       value={sceneImageModel}
                       onChange={(e) => setSceneImageModel(e.target.value as SceneImageModelId)}
                       disabled={isRenderingImages}
-                      className="flex-1 min-w-[12rem] max-w-md bg-white/[0.06] border border-white/12 rounded-xl px-3 py-2 text-white/85 focus:outline-none focus:border-indigo-500/45 disabled:opacity-50"
+                      className="flex-1 min-w-[12rem] max-w-md dream-surface-ghost rounded-[var(--radius-dream)] px-3 py-2 text-white/88 focus:outline-none focus:ring-1 focus:ring-white/20 disabled:opacity-50"
                     >
                       {SCENE_IMAGE_MODEL_OPTIONS.map((o) => (
                         <option key={o.id} value={o.id} className="bg-[#12121a]">
@@ -1025,7 +1078,7 @@ export default function Home() {
                       isRenderingImages ||
                       scenePrompts.some((sp) => !(promptDraftsByScene[sp.sceneIndex] ?? sp.prompts[0])?.trim())
                     }
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-dream-primary w-full py-3.5 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Sparkles size={16} />
                     一键生成场景图
@@ -1041,12 +1094,15 @@ export default function Home() {
 
           {currentStep === "video" && (
             <motion.div key="video" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full max-w-3xl">
-              <h2 className="text-lg font-medium text-white/80 mb-4"><Film size={18} className="inline mr-2 text-indigo-400" />梦境视频</h2>
+              <h2 className="text-lg font-medium text-white/88 mb-4 flex items-center gap-2">
+                <Film size={18} className="text-white/40 shrink-0" strokeWidth={1.5} />
+                梦境视频
+              </h2>
               {audioBlobUrl && <div className="mb-4"><AudioPlayer src={audioBlobUrl} /></div>}
 
               {isGeneratingVideo ? (
                 <div className="flex flex-col items-center gap-4 py-12">
-                  <Loader2 className="animate-spin text-indigo-400" size={40} />
+                  <Loader2 className="animate-spin text-white/40" size={40} />
                   <p className="text-white/50">正在生成梦境视频...</p>
                 </div>
               ) : (
@@ -1093,8 +1149,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <button onClick={handleSaveDream}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-sm font-medium transition-all">
+                  <button onClick={handleSaveDream} className="btn-dream-primary w-full py-3.5 text-sm font-medium">
                     保存梦境
                   </button>
                 </div>
@@ -1103,16 +1158,29 @@ export default function Home() {
           )}
 
           {currentStep === "complete" && (
-            <motion.div key="complete" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-lg flex flex-col items-center gap-6 text-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center"><Moon size={36} /></div>
+            <motion.div
+              key="complete"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full max-w-lg flex flex-col items-center gap-8 text-center py-4"
+            >
+              <div className="w-[5.5rem] h-[5.5rem] rounded-full border border-white/16 bg-white/[0.04] flex items-center justify-center shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+                <Moon size={34} className="text-sky-100/75" strokeWidth={1.25} />
+              </div>
               <div>
-                <h2 className="text-2xl font-light text-white/90 mb-2">梦境已捕捉 ✓</h2>
-                <p className="text-sm text-white/40">你的梦境锚点已保存，日后浏览时可触发回忆</p>
+                <h2 className="text-2xl sm:text-[1.65rem] font-light text-white/92 mb-2 tracking-tight">这一次，被接住了</h2>
+                <p className="text-sm text-white/45 leading-relaxed max-w-sm mx-auto text-pretty">
+                  已写入日志。日后再读，像掀开窗帘的一角，光还会在那里。
+                </p>
               </div>
               {audioBlobUrl && <div className="w-full"><AudioPlayer src={audioBlobUrl} label="回放录音" /></div>}
-              <div className="flex gap-4">
-                <button onClick={handleNewDream} className="px-6 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-sm transition-colors">记录新梦境</button>
-                <Link href="/journal" className="px-6 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-sm transition-colors">查看日志</Link>
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:justify-center">
+                <button type="button" onClick={handleNewDream} className="btn-dream-secondary px-6 py-2.5 text-sm w-full sm:w-auto">
+                  再记一条
+                </button>
+                <Link href="/journal" className="btn-dream-primary px-6 py-2.5 text-sm w-full sm:w-auto no-underline">
+                  去梦境日志
+                </Link>
               </div>
             </motion.div>
           )}

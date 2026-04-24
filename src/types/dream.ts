@@ -21,7 +21,10 @@ export interface Person {
   appearances: number;
   firstSeen: string;
   lastSeen: string;
-  relationships: string[];
+  /** 人物库短标签（如 老师、同学），可由同步梦境时从关系长句抽取或手填 */
+  tags: string[];
+  /** 从各条梦境「关系」字段汇总的原文备注（长句） */
+  relationshipNotes: string[];
   dreamIds: string[];
   /** 本地文件名，位于 data/person-reference/，由上传接口写入 */
   referenceImageFilename?: string;

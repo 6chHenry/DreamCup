@@ -34,10 +34,10 @@ export default function DreamCard({
     <div
       role={selectionMode ? "button" : undefined}
       onClick={handleCardClick}
-      className={`group relative cursor-pointer rounded-2xl border p-5 transition-all ${
+      className={`group relative cursor-pointer rounded-[1.1rem] border p-5 transition-colors duration-200 ${
         selected
-          ? "bg-indigo-500/15 border-indigo-500/40 ring-1 ring-indigo-500/25"
-          : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
+          ? "bg-white/[0.08] border-white/25 ring-1 ring-white/12"
+          : "bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.06] hover:border-white/15"
       }`}
     >
       {selectionMode && (
@@ -46,7 +46,7 @@ export default function DreamCard({
           aria-hidden
         >
           {selected ? (
-            <span className="text-[10px] font-bold text-indigo-300">✓</span>
+            <span className="text-[10px] font-bold text-white/80">✓</span>
           ) : null}
         </div>
       )}
@@ -86,13 +86,13 @@ export default function DreamCard({
 
       <div className="flex flex-wrap gap-2 mb-3">
         {structured.scenes.length > 0 && (
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300">
+          <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-white/[0.08] text-white/75 border border-white/[0.1]">
             <MapPin size={12} />
             {structured.scenes.length} 个场景
           </span>
         )}
         {structured.characters.length > 0 && (
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-300">
+          <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-white/[0.06] text-white/70 border border-white/[0.08]">
             <Users size={12} />
             {structured.characters.length} 个人物
           </span>

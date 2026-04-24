@@ -10,29 +10,29 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between gap-2 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#05040c]/75 backdrop-blur-md">
+        <div className="flex items-center gap-2.5 min-w-0">
           <Link
             href="/"
-            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-[var(--radius-dream)] border border-white/10 bg-white/[0.05] hover:bg-white/[0.09] flex items-center justify-center transition-colors shrink-0"
             aria-label="返回首页"
           >
             <ArrowLeft size={16} className="text-white/80" />
           </Link>
-          <Moon className="text-indigo-400" size={20} />
-          <h1 className="text-lg font-semibold text-white/90">关于掬梦</h1>
+          <Moon className="shrink-0 text-sky-100/70" size={20} strokeWidth={1.5} />
+          <h1 className="text-base sm:text-lg font-medium text-[#f0f1fa] truncate">关于掬梦</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <Link
             href="/journal"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-white/50 hover:text-white/70 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-[var(--radius-dream)] border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-xs sm:text-sm text-white/55 hover:text-white/85 transition-colors"
           >
             <BookOpen size={14} />
             <span className="hidden sm:inline">梦境日志</span>
           </Link>
           <Link
             href="/persons"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-sm text-indigo-200/90 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-[var(--radius-dream)] border border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.07] text-xs sm:text-sm text-white/65 hover:text-white/90 transition-colors"
           >
             <Users size={14} />
             <span className="hidden sm:inline">人物库</span>
@@ -40,8 +40,8 @@ export default function AboutPage() {
         </div>
       </header>
 
-      <main className="flex-1 px-6 py-10 max-w-2xl mx-auto w-full">
-        <p className="text-xs uppercase tracking-widest text-indigo-400/80 mb-3">DreamCup</p>
+      <main className="flex-1 px-5 sm:px-6 py-12 md:py-16 max-w-2xl mx-auto w-full">
+        <p className="text-[10px] sm:text-xs uppercase tracking-[0.25em] text-white/40 mb-3">DreamCup</p>
         <h2 className="text-2xl sm:text-3xl font-light text-white/95 leading-snug mb-8">
           在梦还没消散之前，把它轻轻捧住。
         </h2>
@@ -104,7 +104,7 @@ export default function AboutPage() {
               href="https://github.com/6chHenry"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2.5 text-sm text-indigo-300/95 hover:text-indigo-200 transition-colors"
+              className="inline-flex items-center gap-2.5 text-sm text-sky-100/85 hover:text-white transition-colors"
             >
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-white/90 hover:bg-white/15">
                 <svg
@@ -128,7 +128,7 @@ export default function AboutPage() {
               href="https://github.com/6chHenry/DreamCup"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-indigo-400/90 hover:text-indigo-300 underline underline-offset-2"
+              className="text-white/55 hover:text-white/85 underline underline-offset-2"
             >
               github.com/6chHenry/DreamCup
             </a>

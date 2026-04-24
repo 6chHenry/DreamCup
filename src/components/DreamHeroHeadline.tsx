@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { dreamHeadlineFont } from "@/lib/fonts";
 
 const PHRASES = [
-  "你昨晚梦到了什么？",
-  "有没有什么有趣的梦？",
-  "还记得梦里的光吗？",
-  "醒来先记一段碎片也好。",
+  "你昨晚，梦见了什么？",
+  "光、房间、一个模糊的人……",
+  "把还没散去的，轻轻留住。",
+  "醒来仍温热的那一半秒。",
 ];
 
 const TYPE_MS = 88;
@@ -59,14 +59,13 @@ export default function DreamHeroHeadline() {
 
   return (
     <h2
-      className={`${dreamHeadlineFont.className} mb-2 flex min-h-[2.75rem] flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-center text-[1.65rem] font-light leading-snug tracking-wide sm:text-[1.85rem]`}
+      className={`${dreamHeadlineFont.className} mb-2 flex min-h-[2.75rem] flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-center text-[1.65rem] font-light leading-snug tracking-wide sm:text-[1.85rem] text-[#f2f3fb]`}
+      style={{ textShadow: "0 0 40px rgba(200, 210, 255, 0.12)" }}
       aria-live="polite"
     >
-      <span className="bg-gradient-to-br from-white via-white/95 to-indigo-200/80 bg-clip-text text-transparent">
-        {displayText}
-      </span>
+      <span>{displayText}</span>
       <span
-        className="dream-hero-cursor inline-block h-[1.32em] w-[2px] shrink-0 self-center rounded-sm bg-indigo-400/90 shadow-[0_0_8px_rgba(129,140,248,0.6)]"
+        className="dream-hero-cursor inline-block h-[1.32em] w-px shrink-0 self-center rounded-full bg-white/50"
         aria-hidden
       />
     </h2>

@@ -6,6 +6,33 @@ import { Moon, ArrowLeft, Users, Calendar, Link2, ImagePlus, Trash2, Loader2, Pe
 import type { Person, Dream } from "@/types/dream";
 import { formatJournalDateZh } from "@/lib/dream-dates";
 import { messageFromErrorResponse } from "@/lib/llm-utils";
+import { getMonochromeAvatarGradient } from "@/lib/person-avatar";
+
+/** 兼容未迁移的 API 或缓存中的旧形（仅有 relationships、无 tags） */
+function personTagsFromPayload(p: { tags?: unknown; relationships?: unknown }): string[] {
+  if (Array.isArray(p.tags)) {
+    return p.tags.filter((x): x is string => typeof x === "string");
+  }
+  if (Array.isArray(p.relationships)) {
+    return p.relationships.filter((x): x is string => typeof x === "string");
+  }
+  return [];
+}
+
+function personNotesFromPayload(p: { relationshipNotes?: unknown }): string[] {
+  if (Array.isArray(p.relationshipNotes)) {
+    return p.relationshipNotes.filter((x): x is string => typeof x === "string");
+  }
+  return [];
+}
+
+function personFromApiResponse(raw: Person): Person {
+  return {
+    ...raw,
+    tags: personTagsFromPayload(raw),
+    relationshipNotes: personNotesFromPayload(raw),
+  };
+}
 
 export default function PersonDetailPage() {
   const params = useParams();
@@ -21,6 +48,7 @@ export default function PersonDetailPage() {
   const [tagInput, setTagInput] = useState("");
   const [tagsBusy, setTagsBusy] = useState(false);
   const [tagsToast, setTagsToast] = useState<string | null>(null);
+  const [notesBusy, setNotesBusy] = useState(false);
 
   const fetchPerson = useCallback(async (id: string) => {
     try {
@@ -30,15 +58,14 @@ export default function PersonDetailPage() {
       ]);
 
       if (personRes.ok) {
-        const personData = await personRes.json();
+        const personData = personFromApiResponse((await personRes.json()) as Person);
         setPerson(personData);
-        setTagsDraft([...personData.relationships]);
+        setTagsDraft([...personData.tags]);
 
         if (dreamsRes.ok) {
           const allDreams: Dream[] = await dreamsRes.json();
-          const relatedDreams = allDreams.filter((d) =>
-            personData.dreamIds.includes(d.id)
-          );
+          const dreamIds = Array.isArray(personData.dreamIds) ? personData.dreamIds : [];
+          const relatedDreams = allDreams.filter((d) => dreamIds.includes(d.id));
           setDreams(relatedDreams);
         }
       }
@@ -72,7 +99,7 @@ export default function PersonDetailPage() {
         body: fd,
       });
       if (res.ok) {
-        setPerson(await res.json());
+        setPerson(personFromApiResponse((await res.json()) as Person));
       }
     } catch (err) {
       console.error("Reference upload error:", err);
@@ -116,15 +143,15 @@ export default function PersonDetailPage() {
       const res = await fetch(`/api/persons/${person.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ relationships: tagsDraft }),
+        body: JSON.stringify({ tags: tagsDraft }),
       });
       if (!res.ok) {
         setTagsToast(await messageFromErrorResponse(res));
         return;
       }
-      const updated = await res.json();
+      const updated = personFromApiResponse((await res.json()) as Person);
       setPerson(updated);
-      setTagsDraft([...updated.relationships]);
+      setTagsDraft([...updated.tags]);
       setTagsToast("标签已保存");
     } catch (e) {
       setTagsToast(e instanceof Error ? e.message : "请求失败");
@@ -149,13 +176,38 @@ export default function PersonDetailPage() {
     setTagsDraft((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const removeRelationshipNoteAt = async (index: number) => {
+    if (!person) return;
+    const next = person.relationshipNotes.filter((_, i) => i !== index);
+    setNotesBusy(true);
+    setTagsToast(null);
+    try {
+      const res = await fetch(`/api/persons/${person.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ relationshipNotes: next }),
+      });
+      if (!res.ok) {
+        setTagsToast(await messageFromErrorResponse(res));
+        return;
+      }
+      const updated = personFromApiResponse((await res.json()) as Person);
+      setPerson(updated);
+      setTagsToast("已更新关系备注");
+    } catch (e) {
+      setTagsToast(e instanceof Error ? e.message : "请求失败");
+    } finally {
+      setNotesBusy(false);
+    }
+  };
+
   const handleReferenceDelete = async () => {
     if (!person) return;
     setRefUploading(true);
     try {
       const res = await fetch(`/api/persons/${person.id}/reference-image`, { method: "DELETE" });
       if (res.ok) {
-        setPerson(await res.json());
+        setPerson(personFromApiResponse((await res.json()) as Person));
       }
     } catch (err) {
       console.error("Reference delete error:", err);
@@ -164,28 +216,10 @@ export default function PersonDetailPage() {
     }
   };
 
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      "from-rose-500 to-pink-600",
-      "from-violet-500 to-purple-600",
-      "from-blue-500 to-cyan-600",
-      "from-emerald-500 to-teal-600",
-      "from-amber-500 to-orange-600",
-      "from-indigo-500 to-blue-600",
-      "from-fuchsia-500 to-pink-600",
-      "from-lime-500 to-green-600",
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-white/25 border-t-white/60 rounded-full animate-spin" />
       </div>
     );
   }
@@ -200,16 +234,18 @@ export default function PersonDetailPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#05040c]/75 backdrop-blur-md">
+        <div className="flex items-center gap-2.5 min-w-0">
           <button
+            type="button"
             onClick={() => router.back()}
-            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+            className="w-8 h-8 shrink-0 rounded-[var(--radius-dream)] border border-white/10 bg-white/[0.05] hover:bg-white/[0.09] flex items-center justify-center transition-colors"
+            aria-label="返回"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={16} className="text-white/80" />
           </button>
-          <Moon className="text-indigo-400" size={20} />
-          <h1 className="text-lg font-semibold text-white/90">人物详情</h1>
+          <Moon className="text-sky-100/70 shrink-0" size={20} strokeWidth={1.5} />
+          <h1 className="text-base sm:text-lg font-medium text-[#f0f1fa]">人物详情</h1>
         </div>
         <button
           onClick={() => router.push("/persons")}
@@ -224,7 +260,7 @@ export default function PersonDetailPage() {
         <div className="flex items-center gap-6">
           <div className="relative shrink-0">
             {referenceImageUrl ? (
-              <div className="w-20 h-20 rounded-full overflow-hidden border border-white/15 ring-2 ring-indigo-500/20">
+              <div className="w-20 h-20 rounded-full overflow-hidden border border-white/15 ring-2 ring-white/[0.08]">
                 <img
                   src={referenceImageUrl}
                   alt={`${person.name} 参考图`}
@@ -233,7 +269,7 @@ export default function PersonDetailPage() {
               </div>
             ) : (
               <div
-                className={`w-20 h-20 rounded-full bg-gradient-to-br ${getAvatarColor(
+                className={`w-20 h-20 rounded-full bg-gradient-to-br ${getMonochromeAvatarGradient(
                   person.name
                 )} flex items-center justify-center`}
               >
@@ -250,7 +286,7 @@ export default function PersonDetailPage() {
                   setRenameDraft(person.name);
                   setRenameOpen(true);
                 }}
-                className="flex items-center gap-1 text-xs text-indigo-400/80 hover:text-indigo-300 px-2 py-1 rounded-lg hover:bg-indigo-500/10"
+                className="flex items-center gap-1 text-xs text-white/55 hover:text-white/85 px-2 py-1 rounded-lg hover:bg-white/[0.06]"
               >
                 <Pencil size={12} />
                 重命名
@@ -294,7 +330,7 @@ export default function PersonDetailPage() {
                   {refUploading ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                 </button>
               )}
-              <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-500/20 text-indigo-200 text-xs cursor-pointer hover:bg-indigo-500/30 transition-colors disabled:opacity-50">
+              <label className="flex items-center gap-1.5 px-3 py-2 rounded-[var(--radius-dream)] border border-white/12 bg-white/[0.06] text-white/80 text-xs cursor-pointer hover:bg-white/[0.09] transition-colors disabled:opacity-50">
                 {refUploading ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
                 {referenceImageUrl ? "更换" : "上传"}
                 <input
@@ -316,12 +352,14 @@ export default function PersonDetailPage() {
 
         <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
           <h3 className="text-sm font-medium text-white/70 mb-1">人物标签</h3>
-          <p className="text-xs text-white/35 mb-3">可自定义；与梦境角色里的「关系」独立保存，用于人物库分类。</p>
+          <p className="text-xs text-white/35 mb-3">
+            短词分类（如老师、同学）。系统会从各梦「关系」长句里自动抽常见身份词；你可再增删。
+          </p>
           <div className="flex flex-wrap gap-2 mb-3">
             {tagsDraft.map((rel, i) => (
               <span
                 key={`${rel}-${i}`}
-                className="inline-flex items-center gap-1 text-xs pl-3 pr-1 py-1.5 rounded-full bg-indigo-500/10 text-indigo-300/80 border border-indigo-500/20"
+                className="inline-flex items-center gap-1 text-xs pl-3 pr-1 py-1.5 rounded-full bg-white/[0.06] text-white/75 border border-white/12"
               >
                 {rel}
                 <button
@@ -346,7 +384,7 @@ export default function PersonDetailPage() {
                 }
               }}
               placeholder="输入标签后按回车添加"
-              className="flex-1 min-w-[12rem] bg-white/[0.06] border border-white/12 rounded-lg px-3 py-2 text-sm text-white/85 placeholder:text-white/25 focus:outline-none focus:border-indigo-500/40"
+              className="flex-1 min-w-[12rem] bg-white/[0.05] border border-white/10 rounded-lg px-3 py-2 text-sm text-white/88 placeholder:text-white/28 focus:outline-none focus:ring-1 focus:ring-white/20"
             />
             <button
               type="button"
@@ -359,12 +397,42 @@ export default function PersonDetailPage() {
               type="button"
               onClick={handleSaveTags}
               disabled={tagsBusy}
-              className="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-xs font-medium disabled:opacity-40"
+              className="btn-dream-primary px-4 py-2 text-xs font-medium disabled:opacity-40"
             >
               {tagsBusy ? "保存中…" : "保存标签"}
             </button>
           </div>
           {tagsToast && <p className="text-xs text-white/45 mt-2">{tagsToast}</p>}
+        </section>
+
+        <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <h3 className="text-sm font-medium text-white/70 mb-1">关系备注</h3>
+          <p className="text-xs text-white/35 mb-3">
+            从梦境解析里汇总的「关系」原文（长句），仅作备忘；不会当作标签展示。
+          </p>
+          {person.relationshipNotes.length === 0 ? (
+            <p className="text-xs text-white/25">暂无。新解析的梦境若含关系描述，会自动出现在这里。</p>
+          ) : (
+            <ul className="space-y-2">
+              {person.relationshipNotes.map((line, i) => (
+                <li
+                  key={`${i}-${line.slice(0, 24)}`}
+                  className="flex gap-2 items-start rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-white/55 leading-relaxed"
+                >
+                  <span className="flex-1 min-w-0">{line}</span>
+                  <button
+                    type="button"
+                    disabled={notesBusy}
+                    onClick={() => removeRelationshipNoteAt(i)}
+                    className="shrink-0 p-1 rounded-md hover:bg-white/10 text-white/35 hover:text-white/65 disabled:opacity-40"
+                    title="移除此条备注"
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {renameOpen && (
@@ -389,7 +457,7 @@ export default function PersonDetailPage() {
                   type="button"
                   onClick={handleRenameConfirm}
                   disabled={renameBusy || !renameDraft.trim()}
-                  className="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-xs font-medium disabled:opacity-40"
+                  className="btn-dream-primary px-4 py-2 text-xs font-medium disabled:opacity-40"
                 >
                   {renameBusy ? "保存中…" : "保存"}
                 </button>

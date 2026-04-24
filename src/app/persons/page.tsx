@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { messageFromErrorResponse } from "@/lib/llm-utils";
 import { buildClientLlmHeadersForFetch } from "@/lib/client-llm-headers";
+import { getMonochromeAvatarGradient } from "@/lib/person-avatar";
 
 export default function PersonsPage() {
   const router = useRouter();
@@ -210,38 +211,22 @@ export default function PersonsPage() {
     }
   };
 
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      "from-rose-500 to-pink-600",
-      "from-violet-500 to-purple-600",
-      "from-blue-500 to-cyan-600",
-      "from-emerald-500 to-teal-600",
-      "from-amber-500 to-orange-600",
-      "from-indigo-500 to-blue-600",
-      "from-fuchsia-500 to-pink-600",
-      "from-lime-500 to-green-600",
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  };
-
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <Moon className="text-indigo-400" size={24} />
-          <h1 className="text-lg font-semibold text-white/90">人物库</h1>
-          <span className="text-xs text-white/30">{persons.length} 人</span>
+      <header className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#05040c]/75 backdrop-blur-md">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Moon className="shrink-0 text-sky-100/70" size={22} strokeWidth={1.5} />
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-medium text-[#f0f1fa]">人物库</h1>
+            <span className="text-[10px] sm:text-xs text-white/32">{persons.length} 人</span>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleAiOrganize}
             disabled={aiBusy || persons.length === 0}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 text-sm text-violet-200 border border-violet-500/30 transition-colors disabled:opacity-40"
+            className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-dream)] border border-white/12 bg-white/[0.05] hover:bg-white/[0.08] text-sm text-white/75 transition-colors disabled:opacity-40"
           >
             {aiBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
             AI 一键整理
@@ -252,7 +237,7 @@ export default function PersonsPage() {
                 type="button"
                 onClick={handleDeleteSelected}
                 disabled={manualBusy || selected.size === 0}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-sm text-rose-300 border border-rose-500/25 transition-colors disabled:opacity-40"
+                className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-dream)] border border-white/12 bg-white/[0.05] hover:bg-white/[0.08] text-sm text-white/70 transition-colors disabled:opacity-40"
               >
                 <Trash2 size={14} />
                 删除选中
@@ -261,7 +246,7 @@ export default function PersonsPage() {
                 type="button"
                 onClick={openMergeModal}
                 disabled={manualBusy || selected.size < 2}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-sm text-indigo-300 border border-indigo-500/25 transition-colors disabled:opacity-40"
+                className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-dream)] border border-white/12 bg-white/[0.06] hover:bg-white/[0.09] text-sm text-white/80 transition-colors disabled:opacity-40"
               >
                 <GitMerge size={14} />
                 合并选中
@@ -308,10 +293,8 @@ export default function PersonsPage() {
             <BookOpen size={14} />
             梦境日志
           </Link>
-          <Link
-            href="/"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-sm transition-colors"
-          >
+          <Link href="/" className="btn-dream-primary px-4 py-2.5 text-sm no-underline gap-2">
+            <Plus size={16} />
             记录梦境
           </Link>
         </div>
@@ -332,17 +315,14 @@ export default function PersonsPage() {
       <main className="flex-1 px-6 py-8 max-w-4xl mx-auto w-full">
         {isLoading ? (
           <div className="flex justify-center py-20">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-white/25 border-t-white/60 rounded-full animate-spin" />
           </div>
         ) : persons.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Users size={48} className="text-white/10" />
             <p className="text-white/30 text-sm">还没有记录到梦境中的人物</p>
             <p className="text-white/20 text-xs">记录梦境时，系统会自动提取其中出现的人物</p>
-            <Link
-              href="/"
-              className="mt-4 px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-sm transition-colors"
-            >
+            <Link href="/" className="btn-dream-primary mt-4 text-sm no-underline">
               记录第一个梦境
             </Link>
           </div>
@@ -351,10 +331,10 @@ export default function PersonsPage() {
             {persons.map((person) => (
               <div
                 key={person.id}
-                className={`group relative rounded-xl border p-5 text-left transition-all ${
+                className={`group relative rounded-[var(--radius-dream)] border p-5 text-left transition-colors ${
                   selectionMode && selected.has(person.id)
-                    ? "bg-indigo-500/10 border-indigo-500/35"
-                    : "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-white/20"
+                    ? "bg-white/[0.08] border-white/22 ring-1 ring-white/10"
+                    : "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-white/18"
                 }`}
               >
                 {selectionMode && (
@@ -363,7 +343,7 @@ export default function PersonsPage() {
                       type="checkbox"
                       checked={selected.has(person.id)}
                       onChange={() => toggleSelect(person.id)}
-                      className="rounded border-white/20 bg-white/10 text-indigo-500"
+                      className="rounded border-white/25 bg-white/10 text-white accent-white"
                     />
                   </label>
                 )}
@@ -382,7 +362,7 @@ export default function PersonsPage() {
                         />
                       ) : (
                         <div
-                          className={`w-full h-full bg-gradient-to-br ${getAvatarColor(
+                          className={`w-full h-full bg-gradient-to-br ${getMonochromeAvatarGradient(
                             person.name
                           )} flex items-center justify-center`}
                         >
@@ -398,19 +378,19 @@ export default function PersonsPage() {
                     </div>
                   </div>
 
-                  {person.relationships.length > 0 && (
+                  {person.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-3">
-                      {person.relationships.slice(0, 4).map((rel, i) => (
+                      {person.tags.slice(0, 4).map((tag, i) => (
                         <span
                           key={i}
-                          className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300/70"
+                          className="text-[10px] px-2 py-0.5 rounded-full border border-white/[0.08] bg-white/[0.06] text-white/60"
                         >
-                          {rel}
+                          {tag}
                         </span>
                       ))}
-                      {person.relationships.length > 4 && (
+                      {person.tags.length > 4 && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/20">
-                          +{person.relationships.length - 4}
+                          +{person.tags.length - 4}
                         </span>
                       )}
                     </div>
@@ -447,14 +427,14 @@ export default function PersonsPage() {
               value={addName}
               onChange={(e) => setAddName(e.target.value)}
               placeholder="人物姓名"
-              className="w-full mb-3 bg-white/[0.06] border border-white/12 rounded-lg px-3 py-2 text-sm text-white/85 placeholder:text-white/25 focus:outline-none focus:border-indigo-500/40"
+              className="w-full mb-3 bg-white/[0.06] border border-white/12 rounded-lg px-3 py-2 text-sm text-white/85 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-white/20"
             />
             <label className="block text-[10px] text-white/35 mb-1">人物标签（可选，逗号或顿号分隔）</label>
             <input
               value={addTagsLine}
               onChange={(e) => setAddTagsLine(e.target.value)}
               placeholder="例如：朋友、同事"
-              className="w-full mb-4 bg-white/[0.06] border border-white/12 rounded-lg px-3 py-2 text-sm text-white/85 placeholder:text-white/25 focus:outline-none focus:border-indigo-500/40"
+              className="w-full mb-4 bg-white/[0.06] border border-white/12 rounded-lg px-3 py-2 text-sm text-white/85 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-white/20"
             />
             <div className="flex justify-end gap-2">
               <button
@@ -468,7 +448,7 @@ export default function PersonsPage() {
                 type="button"
                 onClick={handleAddPerson}
                 disabled={manualBusy || !addName.trim()}
-                className="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-xs font-medium disabled:opacity-40"
+                className="btn-dream-primary px-4 py-2 text-xs font-medium disabled:opacity-40"
               >
                 {manualBusy ? "添加中…" : "添加"}
               </button>
@@ -523,7 +503,7 @@ export default function PersonsPage() {
                 type="button"
                 onClick={handleMergeConfirm}
                 disabled={manualBusy || !mergeCanonical.trim()}
-                className="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-xs font-medium disabled:opacity-40"
+                className="btn-dream-primary px-4 py-2 text-xs font-medium disabled:opacity-40"
               >
                 {manualBusy ? "处理中…" : "确认合并"}
               </button>

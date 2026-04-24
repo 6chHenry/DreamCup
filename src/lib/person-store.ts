@@ -1,6 +1,11 @@
 import fs from "fs";
 import path from "path";
 import type { Character, Dream, Person } from "@/types/dream";
+import {
+  appendUniqueNote,
+  extractShortTagsFromText,
+  mergeUniqueTags,
+} from "@/lib/person-tag-extract";
 
 const PERSON_REF_DIR = path.join(process.cwd(), "data", "person-reference");
 
@@ -29,10 +34,81 @@ export function deletePersonReferenceFile(filename: string | undefined): void {
 const DATA_DIR = path.join(process.cwd(), "data");
 const PERSONS_FILE = path.join(DATA_DIR, "persons.json");
 
+/** 读盘时归一化：合并旧版 `relationships`，并去掉该字段以便下次写回为新结构 */
+export function normalizePersonFromDisk(raw: Record<string, unknown>): Person {
+  const now = new Date().toISOString();
+  const id = typeof raw.id === "string" && raw.id ? raw.id : crypto.randomUUID();
+  const name = typeof raw.name === "string" ? raw.name : "";
+  const appearances = typeof raw.appearances === "number" ? raw.appearances : 0;
+  const firstSeen = typeof raw.firstSeen === "string" ? raw.firstSeen : now;
+  const lastSeen = typeof raw.lastSeen === "string" ? raw.lastSeen : now;
+  const dreamIds = Array.isArray(raw.dreamIds)
+    ? raw.dreamIds.filter((x): x is string => typeof x === "string")
+    : [];
+  const referenceImageFilename =
+    typeof raw.referenceImageFilename === "string" ? raw.referenceImageFilename : undefined;
+  const createdAt = typeof raw.createdAt === "string" ? raw.createdAt : now;
+  const updatedAt = typeof raw.updatedAt === "string" ? raw.updatedAt : now;
+
+  let tags: string[] = Array.isArray(raw.tags)
+    ? raw.tags
+        .filter((x): x is string => typeof x === "string")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  let relationshipNotes: string[] = Array.isArray(raw.relationshipNotes)
+    ? raw.relationshipNotes
+        .filter((x): x is string => typeof x === "string")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+
+  const legacy = Array.isArray(raw.relationships)
+    ? raw.relationships.filter((x): x is string => typeof x === "string")
+    : [];
+
+  for (const r of legacy) {
+    const s = r.trim();
+    if (!s) continue;
+    const extracted = extractShortTagsFromText(s);
+    tags = mergeUniqueTags(tags, extracted);
+    if (s.length > 12) {
+      relationshipNotes = appendUniqueNote(relationshipNotes, s);
+    } else if (extracted.length === 0) {
+      tags = mergeUniqueTags(tags, [s]);
+    }
+  }
+
+  return {
+    id,
+    name,
+    appearances,
+    firstSeen,
+    lastSeen,
+    tags,
+    relationshipNotes,
+    dreamIds,
+    referenceImageFilename,
+    createdAt,
+    updatedAt,
+  };
+}
+
+/** 内存或接口里未写全的 Person 补全为合法结构（含 tags 可迭代、兼容旧版 relationships） */
+function coercePerson(p: Person | Record<string, unknown>): Person {
+  return normalizePersonFromDisk(p as Record<string, unknown>);
+}
+
 function ensureDataDir(): void {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
+}
+
+function writePersonsToFile(persons: Map<string, Person>): void {
+  ensureDataDir();
+  const data = JSON.stringify(Array.from(persons.values()), null, 2);
+  fs.writeFileSync(PERSONS_FILE, data, "utf-8");
 }
 
 function readPersonsFromFile(): Map<string, Person> {
@@ -44,18 +120,26 @@ function readPersonsFromFile(): Map<string, Person> {
     const data = fs.readFileSync(PERSONS_FILE, "utf-8");
     const parsed = JSON.parse(data);
     if (Array.isArray(parsed)) {
-      return new Map(parsed.map((p: Person) => [p.id, p]));
+      let needsWrite = false;
+      const out = new Map<string, Person>();
+      for (const item of parsed) {
+        if (!item || typeof item !== "object") continue;
+        const raw = item as Record<string, unknown>;
+        if (Array.isArray(raw.relationships) && raw.relationships.length > 0) {
+          needsWrite = true;
+        }
+        const p = normalizePersonFromDisk(raw);
+        out.set(p.id, p);
+      }
+      if (needsWrite) {
+        writePersonsToFile(out);
+      }
+      return out;
     }
     return new Map();
   } catch {
     return new Map();
   }
-}
-
-function writePersonsToFile(persons: Map<string, Person>): void {
-  ensureDataDir();
-  const data = JSON.stringify(Array.from(persons.values()), null, 2);
-  fs.writeFileSync(PERSONS_FILE, data, "utf-8");
 }
 
 /** Turbopack / 路由分包可能加载多份本模块，模块级 `let` 缓存会不一致；用 globalThis 与 Next 里 Prisma 单例同理。 */
@@ -80,19 +164,23 @@ function getPersons(): Map<string, Person> {
 }
 
 export function getAllPersons(): Person[] {
-  return Array.from(getPersons().values()).sort(
-    (a, b) => b.appearances - a.appearances
-  );
+  return Array.from(getPersons().values())
+    .map((p) => coercePerson(p))
+    .sort((a, b) => b.appearances - a.appearances);
 }
 
 export function getPersonById(id: string): Person | undefined {
-  return getPersons().get(id);
+  const p = getPersons().get(id);
+  if (!p) return undefined;
+  return coercePerson(p);
 }
 
 export function findPersonByName(name: string): Person | undefined {
-  return Array.from(getPersons().values()).find(
-    (p) => p.name.toLowerCase() === name.toLowerCase()
+  const p = Array.from(getPersons().values()).find(
+    (x) => x.name.toLowerCase() === name.toLowerCase()
   );
+  if (!p) return undefined;
+  return coercePerson(p);
 }
 
 /** 用结构化角色里的 name / identity 对应人物库条目 */
@@ -110,11 +198,12 @@ export function findPersonForCharacter(character: Character): Person | undefined
 }
 
 export function createPerson(person: Person): Person {
+  const saved = coercePerson(person);
   const persons = getPersons();
-  persons.set(person.id, person);
+  persons.set(saved.id, saved);
   setPersonsMap(persons);
   writePersonsToFile(persons);
-  return person;
+  return saved;
 }
 
 export function updatePerson(id: string, updates: Partial<Person>): Person | null {
@@ -127,7 +216,8 @@ export function updatePerson(id: string, updates: Partial<Person>): Person | nul
   ) {
     deletePersonReferenceFile(person.referenceImageFilename);
   }
-  const updated = { ...person, ...updates, updatedAt: new Date().toISOString() };
+  const base = coercePerson(person);
+  const updated = { ...base, ...updates, updatedAt: new Date().toISOString() };
   persons.set(id, updated);
   setPersonsMap(persons);
   writePersonsToFile(persons);
@@ -178,6 +268,22 @@ export function syncPersonsFromDream(dream: Dream, lastSeen?: string): void {
   }
 }
 
+function applyDreamRelationshipLine(
+  tags: string[],
+  notes: string[],
+  rel: string
+): { tags: string[]; relationshipNotes: string[] } {
+  const extracted = extractShortTagsFromText(rel);
+  let nextTags = mergeUniqueTags(tags, extracted);
+  let nextNotes = notes;
+  if (rel.length > 12) {
+    nextNotes = appendUniqueNote(nextNotes, rel);
+  } else if (extracted.length === 0) {
+    nextTags = mergeUniqueTags(nextTags, [rel]);
+  }
+  return { tags: nextTags, relationshipNotes: nextNotes };
+}
+
 export function upsertPersonFromDream(
   name: string,
   relationship: string | undefined,
@@ -186,23 +292,28 @@ export function upsertPersonFromDream(
 ): Person {
   const existing = findPersonByName(name);
   const now = new Date().toISOString();
+  const rel = relationship?.trim();
 
   if (existing) {
     const updatedDreamIds = existing.dreamIds.includes(dreamId)
       ? existing.dreamIds
       : [...existing.dreamIds, dreamId];
-    const updatedRelationships =
-      relationship && !existing.relationships.includes(relationship)
-        ? [...existing.relationships, relationship]
-        : existing.relationships;
+    const applied = rel
+      ? applyDreamRelationshipLine(existing.tags, existing.relationshipNotes, rel)
+      : { tags: existing.tags, relationshipNotes: existing.relationshipNotes };
 
     return updatePerson(existing.id, {
       appearances: existing.appearances + (existing.dreamIds.includes(dreamId) ? 0 : 1),
       dreamIds: updatedDreamIds,
-      relationships: updatedRelationships,
+      tags: applied.tags,
+      relationshipNotes: applied.relationshipNotes,
       lastSeen: dreamDate,
     })!;
   }
+
+  const applied = rel
+    ? applyDreamRelationshipLine([], [], rel)
+    : { tags: [] as string[], relationshipNotes: [] as string[] };
 
   const person: Person = {
     id: crypto.randomUUID(),
@@ -210,7 +321,8 @@ export function upsertPersonFromDream(
     appearances: 1,
     firstSeen: dreamDate,
     lastSeen: dreamDate,
-    relationships: relationship ? [relationship] : [],
+    tags: applied.tags,
+    relationshipNotes: applied.relationshipNotes,
     dreamIds: [dreamId],
     createdAt: now,
     updatedAt: now,

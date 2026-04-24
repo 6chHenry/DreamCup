@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { dreamHeadlineFont } from "@/lib/fonts";
+import DreamEffects from "@/components/DreamEffects";
 
 export const metadata: Metadata = {
   title: "DreamCup AI - 掬梦",
@@ -19,8 +20,12 @@ export default function RootLayout({
       // DevTools / extensions (or mobile preview) may inject -webkit-touch-callout on <html> only on the client.
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-[#050510] font-sans">
-        {children}
+      <body className="dream-body min-h-full font-sans">
+        <div className="dream-veil" aria-hidden />
+        <div className="relative z-10 flex min-h-full flex-col">
+          {children}
+          <DreamEffects />
+        </div>
       </body>
     </html>
   );

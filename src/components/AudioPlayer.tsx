@@ -62,17 +62,17 @@ export default function AudioPlayer({ src, label = "录音回放" }: AudioPlayer
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-white/5 border border-white/10 px-4 py-3">
+    <div className="flex items-center gap-3 rounded-[var(--radius-dream)] bg-white/[0.04] border border-white/[0.08] px-4 py-3">
       <audio ref={audioRef} src={src} preload="metadata" />
 
       <button
         onClick={togglePlay}
-        className="w-8 h-8 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 flex items-center justify-center shrink-0 transition-colors"
+        className="w-8 h-8 rounded-full border border-white/15 bg-white/[0.08] hover:bg-white/[0.12] flex items-center justify-center shrink-0 transition-colors"
       >
         {isPlaying ? (
-          <Pause size={14} className="text-indigo-300" />
+          <Pause size={14} className="text-white/85" />
         ) : (
-          <Play size={14} className="text-indigo-300 ml-0.5" />
+          <Play size={14} className="text-white/85 ml-0.5" />
         )}
       </button>
 
@@ -93,9 +93,9 @@ export default function AudioPlayer({ src, label = "录音回放" }: AudioPlayer
           step={0.1}
           value={currentTime}
           onChange={handleSeek}
-          className="w-full h-1 appearance-none bg-white/10 rounded-full cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-400"
+          className="w-full h-1 appearance-none bg-white/10 rounded-full cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white/75"
           style={{
-            background: `linear-gradient(to right, rgba(99,102,241,0.6) ${progress}%, rgba(255,255,255,0.1) ${progress}%)`,
+            background: `linear-gradient(to right, rgba(255,255,255,0.5) ${progress}%, rgba(255,255,255,0.08) ${progress}%)`,
           }}
         />
       </div>

@@ -602,7 +602,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-white/25 border-t-white/60 rounded-full animate-spin" />
       </div>
     );
   }
@@ -625,15 +625,17 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
   // ── render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between gap-2 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#05040c]/75 backdrop-blur-md">
+        <div className="flex items-center gap-2.5 min-w-0">
           <button
+            type="button"
             onClick={() => router.back()}
-            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+            className="w-8 h-8 shrink-0 rounded-[var(--radius-dream)] border border-white/10 bg-white/[0.05] hover:bg-white/[0.09] flex items-center justify-center transition-colors"
+            aria-label="返回"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={16} className="text-white/80" />
           </button>
-          <Moon className="text-indigo-400 flex-shrink-0" size={20} />
+          <Moon className="text-sky-100/70 flex-shrink-0" size={20} strokeWidth={1.5} />
           {editingTitle ? (
             <input
               autoFocus
@@ -644,7 +646,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                 if (e.key === "Enter") commitTitleEdit();
                 if (e.key === "Escape") cancelTitleEdit();
               }}
-              className="text-lg font-semibold bg-transparent border-b border-indigo-400 text-white/90 outline-none w-48 min-w-0"
+              className="text-lg font-semibold bg-transparent border-b border-white/25 text-white/90 outline-none w-48 min-w-0"
             />
           ) : (
             <h1
@@ -662,9 +664,9 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
             className="flex-shrink-0 w-6 h-6 rounded-md hover:bg-white/10 flex items-center justify-center transition-colors disabled:opacity-40"
           >
             {retitling ? (
-              <Loader2 size={13} className="animate-spin text-indigo-400" />
+              <Loader2 size={13} className="animate-spin text-white/45" />
             ) : (
-              <Wand2 size={13} className="text-white/30 hover:text-indigo-300" />
+              <Wand2 size={13} className="text-white/35 hover:text-white/70" />
             )}
           </button>
         </div>
@@ -680,10 +682,10 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
       </header>
 
       <main className="flex-1 px-6 py-8 max-w-4xl mx-auto w-full space-y-10">
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 sm:p-5 space-y-4">
+        <div className="dream-surface-ghost p-4 sm:p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-            <label className="flex items-center gap-2 text-sm font-medium text-white/70 shrink-0">
-              <Calendar size={15} className="text-indigo-400/90 shrink-0" />
+            <label className="flex items-center gap-2 text-sm font-medium text-white/75 shrink-0">
+              <Calendar size={15} className="text-white/45 shrink-0" strokeWidth={1.5} />
               梦境日期
             </label>
             <div className="flex items-center gap-2 flex-wrap">
@@ -692,10 +694,10 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                 value={dreamToDateInputValue(dream)}
                 onChange={handleJournalDateChange}
                 disabled={savingJournalMeta}
-                className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white/85 focus:outline-none focus:border-indigo-500/40 disabled:opacity-50"
+                className="rounded-[var(--radius-dream)] border border-white/12 bg-white/[0.04] px-3 py-1.5 text-sm text-white/88 focus:outline-none focus:ring-1 focus:ring-white/20 disabled:opacity-50"
               />
               {savingJournalMeta && (
-                <Loader2 size={14} className="animate-spin text-indigo-400" aria-hidden />
+                <Loader2 size={14} className="animate-spin text-white/40" aria-hidden />
               )}
             </div>
             <p className="text-xs text-white/35 sm:ml-auto">
@@ -711,7 +713,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
               placeholder="醒来后的随想、联想或想记住的一句话…"
               rows={4}
               disabled={savingJournalMeta}
-              className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:border-indigo-500/30 resize-y min-h-[5.5rem] disabled:opacity-50"
+              className="w-full rounded-[var(--radius-dream)] border border-white/[0.08] bg-black/25 px-3 py-2.5 text-sm text-white/85 placeholder:text-white/28 focus:outline-none focus:ring-1 focus:ring-white/18 resize-y min-h-[5.5rem] disabled:opacity-50"
             />
             <p className="text-xs text-white/30">失焦时自动保存；与下方「AI 梦境解读」内容独立。</p>
           </div>
@@ -751,7 +753,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                   <button
                     onClick={handleSavePrompts}
                     disabled={savingAll}
-                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-[var(--radius-dream)] border border-white/12 bg-white/[0.08] hover:bg-white/[0.12] text-white/85 transition-colors disabled:opacity-50"
                   >
                     {savingAll ? (
                       <Loader2 size={12} className="animate-spin" />
@@ -783,7 +785,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                 value={sceneImageModel}
                 onChange={(e) => setSceneImageModel(e.target.value as SceneImageModelId)}
                 disabled={regenAll || regenScenes.size > 0}
-                className="bg-white/10 border border-white/15 rounded-lg px-2 py-1.5 text-white/80 focus:outline-none focus:border-indigo-500/40 disabled:opacity-50"
+                className="bg-white/[0.08] border border-white/12 rounded-lg px-2 py-1.5 text-white/85 focus:outline-none focus:ring-1 focus:ring-white/20 disabled:opacity-50"
               >
                 {SCENE_IMAGE_MODEL_OPTIONS.map((o) => (
                   <option key={o.id} value={o.id} className="bg-[#12121a]">
@@ -825,7 +827,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                       <div className="w-full aspect-video rounded-t-xl bg-white/[0.03] flex flex-col items-center justify-center gap-2 border-b border-white/5">
                         {isRegening ? (
                           <>
-                            <Loader2 size={24} className="text-indigo-400 animate-spin" />
+                            <Loader2 size={24} className="text-white/40 animate-spin" />
                             <p className="text-xs text-white/30">生成中…</p>
                           </>
                         ) : (
@@ -879,7 +881,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                           onClick={() => handleRegenScene(i)}
                           disabled={isRegening || regenAll}
                           title="重新生成此场景图"
-                          className="flex-shrink-0 flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/25 transition-colors disabled:opacity-40 mt-0.5"
+                          className="flex-shrink-0 flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-[var(--radius-dream)] border border-white/12 bg-white/[0.06] hover:bg-white/[0.1] text-white/85 transition-colors disabled:opacity-40 mt-0.5"
                         >
                           {isRegening ? (
                             <Loader2 size={11} className="animate-spin" />
@@ -904,7 +906,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                             </span>
                           )}
                           {isDirty && (
-                            <span className="ml-1 w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />
+                            <span className="ml-1 w-1.5 h-1.5 rounded-full bg-white/45 inline-block" />
                           )}
                         </button>
 
@@ -918,14 +920,14 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                               }}
                               rows={4}
                               placeholder="在此输入或修改生图 prompt…"
-                              className="w-full text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white/70 placeholder-white/20 resize-none focus:outline-none focus:border-indigo-500/50 focus:bg-white/[0.07] transition-colors font-mono leading-relaxed"
+                              className="w-full text-xs bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-white/75 placeholder-white/24 resize-none focus:outline-none focus:ring-1 focus:ring-white/18 focus:bg-white/[0.06] transition-colors font-mono leading-relaxed"
                             />
                             <div className="flex justify-end gap-2">
                               {isDirty && (
                                 <button
                                   onClick={handleSavePrompts}
                                   disabled={savingAll}
-                                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 transition-colors disabled:opacity-50"
+                                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-[var(--radius-dream)] border border-white/12 bg-white/[0.08] hover:bg-white/[0.12] text-white/85 transition-colors disabled:opacity-50"
                                 >
                                   {savingAll ? (
                                     <Loader2 size={11} className="animate-spin" />
@@ -1083,7 +1085,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                     <p className="text-xs text-white/40 mt-1">{char.appearance}</p>
                   )}
                   {char.relationship && (
-                    <p className="text-xs text-indigo-300 mt-1">{char.relationship}</p>
+                    <p className="text-xs text-white/55 mt-1">{char.relationship}</p>
                   )}
                 </button>
               ))}

@@ -142,10 +142,13 @@ export default function JournalPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <Moon className="text-indigo-400" size={24} />
-          <h1 className="text-lg font-semibold text-white/90">梦境日志</h1>
+      <header className="flex items-center justify-between gap-2 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#05040c]/75 backdrop-blur-md">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Moon className="shrink-0 text-sky-100/70" size={22} strokeWidth={1.5} />
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-medium text-[#f0f1fa]">梦境日志</h1>
+            <p className="text-[10px] sm:text-xs text-white/32 truncate">按日期收拢的碎片</p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <input
@@ -223,7 +226,7 @@ export default function JournalPage() {
           )}
           <Link
             href="/"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-sm transition-colors"
+            className="btn-dream-primary px-4 py-2.5 text-sm no-underline"
           >
             <Plus size={16} />
             记录梦境
@@ -237,10 +240,10 @@ export default function JournalPage() {
         </p>
       )}
 
-      <main className="flex-1 px-6 py-8 max-w-4xl mx-auto w-full">
+      <main className="flex-1 px-5 sm:px-6 py-10 md:py-14 max-w-4xl mx-auto w-full">
         {isLoading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <div className="flex justify-center py-24">
+            <div className="w-8 h-8 border-2 border-white/25 border-t-white/60 rounded-full animate-spin" />
           </div>
         ) : (
           <JournalTimeline

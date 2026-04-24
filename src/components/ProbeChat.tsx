@@ -90,10 +90,10 @@ export default function ProbeChat({
               <div
                 className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                   message.role === "user"
-                    ? "bg-indigo-500/20 text-indigo-100"
+                    ? "bg-white/10 text-white/90 border border-white/10"
                     : message.role === "system"
-                    ? "bg-amber-500/10 text-amber-200 text-sm italic"
-                    : "bg-white/10 text-white/90"
+                    ? "bg-amber-500/10 text-amber-100/95 text-sm italic border border-amber-500/15"
+                    : "bg-white/[0.06] text-white/88 border border-white/[0.08]"
                 }`}
               >
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
@@ -136,7 +136,7 @@ export default function ProbeChat({
               placeholder="输入你的回答..."
               disabled={isProcessing}
               rows={1}
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 resize-none disabled:opacity-50"
+              className="flex-1 bg-white/[0.04] border border-white/10 rounded-[var(--radius-dream)] px-4 py-3 text-sm text-white placeholder-white/32 focus:outline-none focus:ring-1 focus:ring-white/20 resize-none disabled:opacity-50"
             />
 
             {isVoiceInput ? (
@@ -159,7 +159,8 @@ export default function ProbeChat({
             <button
               onClick={handleSendText}
               disabled={!inputText.trim() || isProcessing}
-              className="w-10 h-10 rounded-xl bg-indigo-500 hover:bg-indigo-600 flex items-center justify-center transition-colors shrink-0 disabled:opacity-50"
+              className="w-10 h-10 rounded-[var(--radius-dream)] bg-[#f0f1f7] text-[#0a0912] hover:bg-white flex items-center justify-center transition-colors shrink-0 disabled:opacity-45"
+              title="发送"
             >
               <Send size={16} />
             </button>
@@ -169,7 +170,7 @@ export default function ProbeChat({
 
       {isComplete && (
         <div className="p-4 border-t border-white/10">
-          <p className="text-center text-sm text-white/40">记忆补全已完成 ✓</p>
+          <p className="text-center text-sm text-white/42">记忆补全已完成</p>
         </div>
       )}
     </div>

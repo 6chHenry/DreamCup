@@ -75,7 +75,8 @@ export async function POST(request: NextRequest) {
       name: p.name,
       appearances: p.appearances,
       dreamCount: p.dreamIds.length,
-      relationshipsSample: p.relationships.slice(0, 6),
+      tagsSample: p.tags.slice(0, 6),
+      relationshipNotesExcerpt: (p.relationshipNotes[0] ?? "").slice(0, 120),
     }));
 
     const userContent = PERSON_ORGANIZE_USER_PROMPT(JSON.stringify(compact, null, 2));

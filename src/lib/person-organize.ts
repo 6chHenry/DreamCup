@@ -158,7 +158,8 @@ export function mergePersonRecords(
   if (!keep) return null;
 
   const dreamSet = new Set(keep.dreamIds);
-  const rels = new Set(keep.relationships);
+  const tagSet = new Set(keep.tags);
+  const noteSet = new Set(keep.relationshipNotes);
   let ref = keep.referenceImageFilename;
 
   for (const aid of absorbIds) {
@@ -166,7 +167,8 @@ export function mergePersonRecords(
     const p = getPersonById(aid);
     if (!p) continue;
     for (const d of p.dreamIds) dreamSet.add(d);
-    for (const r of p.relationships) rels.add(r);
+    for (const t of p.tags) tagSet.add(t);
+    for (const n of p.relationshipNotes) noteSet.add(n);
 
     const absorbRef = p.referenceImageFilename;
     const adoptAbsorbFile = !ref && Boolean(absorbRef);
@@ -185,7 +187,8 @@ export function mergePersonRecords(
   return updatePerson(keepId, {
     name: canonicalName.trim() || keep.name,
     dreamIds: [...dreamSet],
-    relationships: [...rels],
+    tags: [...tagSet],
+    relationshipNotes: [...noteSet],
     appearances: dreamSet.size,
     referenceImageFilename: ref,
   });
@@ -205,7 +208,7 @@ export function sanitizePersonOrganizePlan(
     if (!t.personId || deleteSet.has(t.personId)) continue;
     const p = personsById.get(t.personId);
     if (!p) continue;
-    if (p.relationships.length > 0) continue;
+    if (p.tags.length > 0) continue;
     const tags = (t.tags ?? []).map((x) => String(x).trim()).filter(Boolean);
     if (tags.length === 0) continue;
     if (seen.has(t.personId)) continue;
@@ -261,7 +264,7 @@ export function executePersonOrganizePlan(plan: PersonOrganizePlan): {
 
   for (const t of planToRun.tagAssignments ?? []) {
     const p = getPersonById(t.personId);
-    if (!p || p.relationships.length > 0) continue;
+    if (!p || p.tags.length > 0) continue;
     const seen = new Set<string>();
     const tags: string[] = [];
     for (const raw of t.tags ?? []) {
@@ -273,7 +276,7 @@ export function executePersonOrganizePlan(plan: PersonOrganizePlan): {
       tags.push(s);
     }
     if (tags.length > 0) {
-      updatePerson(t.personId, { relationships: tags });
+      updatePerson(t.personId, { tags });
     }
   }
 
