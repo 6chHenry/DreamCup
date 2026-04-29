@@ -2,27 +2,45 @@ import { execFile } from "child_process";
 import { createRequire } from "node:module";
 import { randomUUID } from "crypto";
 import { promisify } from "util";
+import fsSync from "fs";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
 
 const execFileAsync = promisify(execFile);
 
-/**
- * ffmpeg-static 默认用 `__dirname` 拼二进制路径；被 Turbopack/Webpack 打进 chunk 后
- * `__dirname` 会变成虚拟路径（如 \\ROOT\\node_modules\\...），spawn 报 ENOENT。
- * 从项目根 `package.json` 创建 require，让包内 `__dirname` 指向真实磁盘上的 node_modules。
- */
-function resolveFfmpegBinaryPath(): string | null {
-  if (process.env.FFMPEG_BIN?.trim()) {
-    return process.env.FFMPEG_BIN.trim();
-  }
+function isLikelyExecutableFile(absPath: string): boolean {
   try {
-    const requireFromProject = createRequire(path.join(process.cwd(), "package.json"));
-    return requireFromProject("ffmpeg-static") as string | null;
+    return fsSync.statSync(absPath).isFile();
   } catch {
+    return false;
+  }
+}
+
+/**
+ * ffmpeg-static：包内路径依赖真实磁盘上的 node_modules；
+ * Next / Vercel 若未将该包与外置二进制打上追踪，则需回退路径与 `serverExternalPackages`。
+ */
+export function getFfmpegBinaryPath(): string | null {
+  const fromEnv = process.env.FFMPEG_BIN?.trim();
+  if (fromEnv) {
+    if (isLikelyExecutableFile(fromEnv)) return fromEnv;
     return null;
   }
+
+  try {
+    const requireFromProject = createRequire(path.join(process.cwd(), "package.json"));
+    const p = requireFromProject("ffmpeg-static") as string | null;
+    if (p && isLikelyExecutableFile(p)) return p;
+  } catch {
+    /* 试回退路径 */
+  }
+
+  const exe = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+  const direct = path.join(process.cwd(), "node_modules", "ffmpeg-static", exe);
+  if (isLikelyExecutableFile(direct)) return direct;
+
+  return null;
 }
 
 /** 豆包极速版明确支持 WAV / MP3 / OGG OPUS；其余（m4a、webm 等）先转码再送识别。 */
@@ -38,9 +56,9 @@ export function shouldTranscodeToWavForDoubao(ext: string, mime: string): boolea
 
 /** 转为 16kHz 单声道 PCM WAV，与常见语音识别输入一致。 */
 export async function transcodeBufferToWavPcm16kMono(input: Buffer, inputExt: string): Promise<Buffer> {
-  const ffmpegPath = resolveFfmpegBinaryPath();
+  const ffmpegPath = getFfmpegBinaryPath();
   if (!ffmpegPath) {
-    throw new Error("未找到 ffmpeg 可执行文件（ffmpeg-static）。请执行 npm install。");
+    throw new Error("未找到 ffmpeg 可执行文件（ffmpeg-static）。请执行 npm install（或在本机核对 node_modules/ffmpeg-static 下二进制是否存在）；部署环境可使用环境变量 FFMPEG_BIN。");
   }
 
   const id = randomUUID();

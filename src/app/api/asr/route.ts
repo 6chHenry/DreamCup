@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { llmFetch } from "@/lib/llm-fetch";
-import { shouldTranscodeToWavForDoubao, transcodeBufferToWavPcm16kMono } from "@/lib/audio-convert";
+import {
+  shouldTranscodeToWavForDoubao,
+  transcodeBufferToWavPcm16kMono,
+  getFfmpegBinaryPath,
+} from "@/lib/audio-convert";
 import { getServerDataRoot } from "@/lib/server-data-root";
 
 export const runtime = "nodejs";
@@ -36,12 +40,21 @@ export async function POST(request: NextRequest) {
 
     let asrBuffer = buffer;
     if (shouldTranscodeToWavForDoubao(ext, audioFile.type || "")) {
+      if (!getFfmpegBinaryPath()) {
+        return NextResponse.json(
+          {
+            error:
+              "服务端未找到可用的 ffmpeg（无法将 WebM / m4a 等转为 WAV）。请上传 WAV、MP3、OGG，或在部署环境确认已安装 ffmpeg-static 且随构建产物部署；也可用环境变量 FFMPEG_BIN 指向可执行文件。",
+          },
+          { status: 400 }
+        );
+      }
       try {
         asrBuffer = Buffer.from(await transcodeBufferToWavPcm16kMono(buffer, ext));
       } catch (transcodeErr) {
         console.error("ASR transcode error:", transcodeErr);
         throw new Error(
-          `音频转 WAV 失败：${transcodeErr instanceof Error ? transcodeErr.message : String(transcodeErr)}。请确认已安装依赖 ffmpeg-static，或改用 mp3/wav 上传。`
+          `音频转 WAV 失败：${transcodeErr instanceof Error ? transcodeErr.message : String(transcodeErr)}。请确认 ffmpeg 可用，或改用 mp3/wav 上传。`
         );
       }
     }
