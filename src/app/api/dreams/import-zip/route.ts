@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createDream } from "@/lib/dream-store";
+import { isVercelDeployment } from "@/lib/deployment";
+import { saveOnlineDream } from "@/lib/online-dream-store";
 import { syncPersonsFromDream } from "@/lib/person-store";
 import { parseDreamExportZip } from "@/lib/dream-zip-import";
 
@@ -26,9 +28,10 @@ export async function POST(request: NextRequest) {
     }
 
     const dream = await parseDreamExportZip(buf);
-    createDream(dream);
+    if (isVercelDeployment()) await saveOnlineDream(dream);
+    else createDream(dream);
 
-    if (dream.structured.characters?.length) {
+    if (!isVercelDeployment() && dream.structured.characters?.length) {
       syncPersonsFromDream(dream, dream.createdAt);
     }
 

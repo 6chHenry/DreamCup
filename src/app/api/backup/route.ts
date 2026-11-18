@@ -3,11 +3,13 @@ import { v4 as uuidv4 } from "uuid";
 import { createDream, getAllDreamRecords } from "@/lib/dream-store";
 import { syncPersonsFromDream } from "@/lib/person-store";
 import { DreamSchema } from "@/lib/schema";
+import { isVercelDeployment } from "@/lib/deployment";
+import { listOnlineDreams, saveOnlineDream } from "@/lib/online-dream-store";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const dreams = getAllDreamRecords();
+  const dreams = isVercelDeployment() ? await listOnlineDreams(true) : getAllDreamRecords();
   return NextResponse.json({
     format: "dreamcup-backup",
     version: 1,
@@ -32,8 +34,11 @@ export async function POST(request: NextRequest) {
         continue;
       }
       const dream = { ...parsed.data, id: uuidv4() };
-      createDream(dream);
-      syncPersonsFromDream(dream, dream.createdAt);
+      if (isVercelDeployment()) await saveOnlineDream(dream);
+      else {
+        createDream(dream);
+        syncPersonsFromDream(dream, dream.createdAt);
+      }
       imported.push(dream);
     }
 

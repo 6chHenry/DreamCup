@@ -25,6 +25,7 @@ interface JournalWorkspaceProps {
   onToggleSelectionMode: () => void;
   onImportZipPick: () => void;
   onImportZipChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  online: boolean;
 }
 
 function searchText(dream: Dream): string {
@@ -83,7 +84,7 @@ export default function JournalWorkspace(props: JournalWorkspaceProps) {
           <span><span className="dream-title block text-base sm:text-lg">梦境日志</span><span className="hidden sm:block text-[10px] text-dream-muted">把散落的夜，慢慢收成一本书</span></span>
         </Link>
         <nav className="dream-header-nav" aria-label="主导航">
-          <Link href="/persons"><Users size={15} /><span className="hidden sm:inline">人物库</span></Link>
+          {!props.online && <Link href="/persons"><Users size={15} /><span className="hidden sm:inline">人物库</span></Link>}
           <Link href="/about"><Info size={15} /><span className="hidden sm:inline">关于</span></Link>
           <Link href="/" className="btn-dream-primary px-3.5 py-2 text-xs"><Plus size={15} />记录梦境</Link>
         </nav>
@@ -120,9 +121,9 @@ export default function JournalWorkspace(props: JournalWorkspaceProps) {
           <p>{query || filter !== "all" ? `找到 ${filteredDreams.length} 条相关记录` : "按梦见的日期排列"}</p>
           <div className="journal-utility-actions">
             <button type="button" disabled={backupBusy} onClick={exportBackup}>{backupBusy ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}备份 JSON</button>
-            <button type="button" disabled={importZipBusy} onClick={props.onImportZipPick}>
+            {!props.online && <button type="button" disabled={importZipBusy} onClick={props.onImportZipPick}>
               {importZipBusy ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}导入 ZIP
-            </button>
+            </button>}
             <input ref={importZipInputRef} type="file" accept=".zip,application/zip,application/x-zip-compressed" className="hidden" onChange={props.onImportZipChange} />
             {dreams.length > 0 && <button type="button" onClick={props.onToggleSelectionMode}>{selectionMode ? <Check size={13} /> : null}{selectionMode ? "完成" : "管理"}</button>}
           </div>

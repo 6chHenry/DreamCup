@@ -6,6 +6,13 @@
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## 线上与本地
+
+- Vercel 线上版：文字记录、Kimi 整理与结构化、Neon 持久化日志和文字详情。
+- 本地完整版：在此基础上支持记忆核对、单卡 A100 的 MiniMax H3 Image 生图、H3 视频和 FFmpeg 合成。
+- 本地 `data/` 与线上数据库相互独立，不上传或同步私人梦境与媒体。
+- 部署、环境变量和 A100 转发步骤见 [docs/deployment.md](docs/deployment.md)。
+
 ## Getting Started
 
 First, run the development server:

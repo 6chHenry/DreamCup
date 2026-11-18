@@ -3,6 +3,12 @@
   "functions": {
     "src/app/api/asr/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/polish/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/parse/route.ts": {
+      "maxDuration": 120
     }
   }
 }

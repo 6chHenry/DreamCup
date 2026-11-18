@@ -3,8 +3,11 @@ import { v4 as uuidv4 } from "uuid";
 import { getAllDreams, createDream } from "@/lib/dream-store";
 import { syncPersonsFromDream } from "@/lib/person-store";
 import type { Dream } from "@/types/dream";
+import { isVercelDeployment } from "@/lib/deployment";
+import { listOnlineDreams, saveOnlineDream } from "@/lib/online-dream-store";
 
 export async function GET() {
+  if (isVercelDeployment()) return NextResponse.json(await listOnlineDreams());
   const allDreams = getAllDreams();
   return NextResponse.json(allDreams);
 }
@@ -40,9 +43,10 @@ export async function POST(request: NextRequest) {
       updatedAt: body.updatedAt || new Date().toISOString(),
     };
 
-    createDream(dream);
+    if (isVercelDeployment()) await saveOnlineDream(dream);
+    else createDream(dream);
 
-    if (dream.structured.characters?.length > 0) {
+    if (!isVercelDeployment() && dream.structured.characters?.length > 0) {
       syncPersonsFromDream(dream, dream.createdAt);
     }
 
