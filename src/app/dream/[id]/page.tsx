@@ -18,11 +18,10 @@ import {
   AlertCircle,
   ImageOff,
   Wand2,
-  Video,
-  Play,
   Brain,
   Calendar,
 } from "lucide-react";
+import DreamEntryEditor from "@/components/DreamEntryEditor";
 import type { Dream, DreamSceneImage } from "@/types/dream";
 import {
   dreamToDateInputValue,
@@ -32,7 +31,6 @@ import {
 import { messageFromErrorResponse } from "@/lib/llm-utils";
 import {
   LLM_MODEL_OPTIONS,
-  DEFAULT_LLM_MODEL,
   getLlmModelOption,
   readStoredLlmModel,
   writeStoredLlmModel,
@@ -44,6 +42,8 @@ import {
 } from "@/lib/scene-image-model";
 import JSZip from "jszip";
 import AudioPlayer from "@/components/AudioPlayer";
+import StoryboardStudio from "@/components/StoryboardStudio";
+import { cameraMotionLabel } from "@/lib/storyboard";
 
 type SceneImageApiRow = {
   sceneIndex: number;
@@ -123,15 +123,14 @@ export default function DreamDetailPage() {
   const [savingAll, setSavingAll] = useState(false);
   const [regenAll, setRegenAll] = useState(false);
   const [regenScenes, setRegenScenes] = useState<Set<number>>(new Set());
+  const [sceneError, setSceneError] = useState<string | null>(null);
   const [sceneImageModel, setSceneImageModel] = useState<SceneImageModelId>(DEFAULT_SCENE_IMAGE_MODEL);
+  const [visualContinuity, setVisualContinuity] = useState(true);
 
-  // video generation
-  const [generatingVideo, setGeneratingVideo] = useState(false);
-  const [videoError, setVideoError] = useState<string | null>(null);
   const [restoreToJournalBusy, setRestoreToJournalBusy] = useState(false);
 
   // AI 梦境解读（寓意 / 象征）
-  const [interpretModel, setInterpretModel] = useState(DEFAULT_LLM_MODEL);
+  const [interpretModel, setInterpretModel] = useState(readStoredLlmModel);
   const [interpretMenuOpen, setInterpretMenuOpen] = useState(false);
   const [interpretLoading, setInterpretLoading] = useState(false);
   const [interpretText, setInterpretText] = useState<string | null>(null);
@@ -139,10 +138,6 @@ export default function DreamDetailPage() {
 
   const [notesDraft, setNotesDraft] = useState("");
   const [savingJournalMeta, setSavingJournalMeta] = useState(false);
-
-  useEffect(() => {
-    setInterpretModel(readStoredLlmModel());
-  }, []);
 
   useEffect(() => {
     if (!dream) return;
@@ -328,6 +323,8 @@ export default function DreamDetailPage() {
           scenePrompts: [{ sceneIndex, prompts: [prompt] }],
           imageModel: sceneImageModel,
           styleGuide: dream.sceneStyleGuide ?? undefined,
+          aspectRatio: dream.storyboard?.aspectRatio ?? "16:9",
+          continuityKey: dream.id,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -382,6 +379,12 @@ export default function DreamDetailPage() {
             styleGuide: dream.sceneStyleGuide ?? undefined,
             imageBatchOffset: offset,
             imageBatchSize: SCENE_IMAGE_BATCH_SIZE,
+            aspectRatio: dream.storyboard?.aspectRatio ?? "16:9",
+            visualContinuity: sceneImageModel === "minimax-h3-image-local" && visualContinuity,
+            previousSceneImageUrl: offset > 0
+              ? nextDream.scenes.filter((scene) => scene.sceneIndex < offset && scene.imageUrl).sort((a, b) => b.sceneIndex - a.sceneIndex)[0]?.imageUrl
+              : undefined,
+            continuityKey: dream.id,
           }),
         });
         if (!res.ok) throw new Error(await res.text());
@@ -427,52 +430,43 @@ export default function DreamDetailPage() {
     }
   };
 
-  const handleGenerateVideo = async () => {
-    if (!dream || generatingVideo) return;
-    setGeneratingVideo(true);
-    setVideoError(null);
+  const handleRegenerateStoryboardShot = async (sceneIndex: number, prompt: string) => {
+    setSceneError(null);
+    setPromptDrafts((previous) => ({ ...previous, [sceneIndex]: prompt }));
+    setDirtyPrompts((previous) => new Set(previous).add(sceneIndex));
+    if (regenScenes.has(sceneIndex) || !prompt.trim()) return;
+    setRegenScenes((previous) => new Set(previous).add(sceneIndex));
     try {
-      const sceneImageUrls = dream.scenes
-        .filter((s) => s.imageUrl)
-        .sort((a, b) => a.sceneIndex - b.sceneIndex)
-        .map((s) => s.imageUrl);
-
-      const res = await fetch("/api/video", {
+      const response = await fetch("/api/render", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sceneImageUrls, dreamStructured: dream.structured }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-model": interpretModel,
+          "x-api-url": getLlmModelOption(interpretModel).apiUrl,
+          "x-api-key": getLlmModelOption(interpretModel).apiKey,
+        },
+        body: JSON.stringify({
+          dreamStructured: dream?.structured,
+          scenePrompts: [{ sceneIndex, description: dream?.structured.scenes[sceneIndex]?.description ?? prompt, prompts: [prompt] }],
+          imageModel: sceneImageModel,
+          styleGuide: dream?.sceneStyleGuide,
+          aspectRatio: dream?.storyboard?.aspectRatio ?? "16:9",
+          continuityKey: dream?.id,
+        }),
       });
-      const result = (await res.json()) as {
-        status?: string;
-        videoUrl?: string;
-        message?: string;
-        detail?: string;
-      };
-
-      if (!res.ok) {
-        setVideoError(result.message ?? result.detail ?? "视频生成失败");
-        return;
-      }
-
-      if (result.videoUrl) {
-        const patchRes = await fetch(`/api/dreams/${dream.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoUrl: result.videoUrl }),
+      if (!response.ok) throw new Error(await messageFromErrorResponse(response));
+      const result = await response.json() as { sceneImages?: SceneImageApiRow[] };
+      if (dream && result.sceneImages) {
+        const updated = { ...dream, scenes: mergeSceneResults(dream.scenes, result.sceneImages) };
+        const saveResponse = await fetch(`/api/dreams/${dream.id}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenes: updated.scenes }),
         });
-        if (patchRes.ok) {
-          setDream((await patchRes.json()) as Dream);
-        } else {
-          setDream((prev) => (prev ? { ...prev, videoUrl: result.videoUrl } : prev));
-          setVideoError("视频已生成，但保存到日志失败，请刷新后重试");
-        }
-      } else {
-        setVideoError(result.message ?? result.detail ?? "视频生成失败");
+        if (saveResponse.ok) setDream(await saveResponse.json());
       }
-    } catch (e) {
-      setVideoError(e instanceof Error ? e.message : "请求失败");
+    } catch (error) {
+      setSceneError(error instanceof Error ? error.message : "场景重绘失败");
     } finally {
-      setGeneratingVideo(false);
+      setRegenScenes((previous) => { const next = new Set(previous); next.delete(sceneIndex); return next; });
     }
   };
 
@@ -572,12 +566,20 @@ ${dream.structured.characters
 ${dream.structured.narrative.summary}
 
 ${
+  dream.storyboard?.shots.length
+    ? `## 梦境分镜\n\n${dream.storyboard.shots.map((shot, index) => `### ${index + 1}. ${shot.title}\n\n${shot.description}\n\n- 时长：${shot.duration} 秒\n- 运镜：${cameraMotionLabel(shot.cameraMotion)}\n- 转场：${shot.transition}\n- 旁白：${shot.narration || "无"}\n\n**视频提示词**：\n\n\`\`\`\n${shot.videoPrompt}\n\`\`\``).join("\n\n")}\n\n`
+    : ""
+}
+
+${
   dream.aiInterpretation?.trim()
     ? `## AI 梦境解读\n\n${dream.aiInterpretation.trim()}\n\n`
     : ""
 }${
   dream.videoUrl?.trim()
-    ? `## 梦境视频\n\n${dream.videoUrl.trim()}\n\n`
+    ? `## 梦境视频\n\n${dream.videoUrl.trim()}${
+        dream.sourceVideoUrl?.trim() ? `\n\n远程原始地址：${dream.sourceVideoUrl.trim()}` : ""
+      }\n\n`
     : ""
 }## 情绪
 
@@ -635,7 +637,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
   // ── render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between gap-2 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#05040c]/75 backdrop-blur-md">
+      <header className="dream-site-header">
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"
@@ -645,7 +647,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
           >
             <ArrowLeft size={16} className="text-white/80" />
           </button>
-          <Moon className="text-sky-100/70 flex-shrink-0" size={20} strokeWidth={1.5} />
+          <Moon className="dream-moon-icon flex-shrink-0" size={20} strokeWidth={1.5} />
           {editingTitle ? (
             <input
               autoFocus
@@ -752,11 +754,16 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
 
         {/* ── 场景 + 生图 ── */}
         {structured.scenes.length > 0 && (
-          <section>
+          <details className="dream-scene-library" open={anyFailed}>
+            <summary>
+              <span><MapPin size={14} /><strong>01 · 场景与画面</strong><small>{dream.scenes.filter((scene) => scene.imageUrl).length}/{structured.scenes.length} 张已就绪{anyFailed ? ` · ${failedScenes.length} 张待处理` : ""}</small></span>
+              <span className="dream-scene-library-action">{anyFailed ? "需要补图" : "管理生图与提示词"}<ChevronDown size={14} /></span>
+            </summary>
+            <div className="dream-scene-library-body">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-sm font-medium text-white/50 flex items-center gap-2">
                 <MapPin size={14} />
-                场景 &amp; 生图
+                01 · 场景与画面
               </h2>
               <div className="flex items-center gap-2">
                 {dirtyPrompts.size > 0 && (
@@ -804,6 +811,11 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                 ))}
               </select>
             </div>
+
+            {sceneImageModel === "minimax-h3-image-local" && <label className="flex items-start gap-2 mb-4 text-xs text-white/50 leading-relaxed">
+              <input type="checkbox" checked={visualContinuity} onChange={(event) => setVisualContinuity(event.target.checked)} disabled={regenAll} className="mt-0.5" />
+              <span>批量重绘时参考前一镜头的画风、色调与共同场景元素。单镜头重绘保持独立，避免未确认的变化向后传播。</span>
+            </label>}
 
             <div className="space-y-5">
               {structured.scenes.map((scene, i) => {
@@ -968,90 +980,18 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                 );
               })}
             </div>
-          </section>
+            </div>
+          </details>
         )}
 
-        {/* ── 视频 ── */}
-        <section>
-          <h2 className="text-sm font-medium text-white/50 mb-4 flex items-center gap-2">
-            <Video size={14} />
-            梦境视频
-          </h2>
-
-          {dream.videoUrl ? (
-            <video
-              src={dream.videoUrl}
-              controls
-              className="w-full rounded-xl overflow-hidden bg-black"
-            />
-          ) : (
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
-              {/* 场景图预览行 */}
-              {dream.scenes.filter((s) => s.imageUrl).length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {dream.scenes
-                    .filter((s) => s.imageUrl)
-                    .sort((a, b) => a.sceneIndex - b.sceneIndex)
-                    .map((s) => (
-                      <img
-                        key={s.id}
-                        src={s.imageUrl}
-                        alt={`场景 ${s.sceneIndex + 1}`}
-                        className="h-16 w-28 object-cover rounded-lg flex-shrink-0 opacity-70"
-                      />
-                    ))}
-                </div>
-              )}
-
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <p className="text-sm text-white/40">
-                  {dream.scenes.filter((s) => s.imageUrl).length > 0
-                    ? "以现有场景图为参考，生成梦境视频（约需数分钟）"
-                    : "暂无场景图，将根据梦境文本生成视频（约需数分钟）"}
-                </p>
-                <button
-                  onClick={handleGenerateVideo}
-                  disabled={generatingVideo}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 border border-violet-500/30 text-sm transition-colors disabled:opacity-50 flex-shrink-0"
-                >
-                  {generatingVideo ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      生成中，请稍候…
-                    </>
-                  ) : (
-                    <>
-                      <Play size={14} />
-                      生成梦境视频
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {generatingVideo && (
-                <div className="flex items-center gap-2 text-xs text-white/30">
-                  <div className="flex gap-0.5">
-                    {[0, 1, 2].map((i) => (
-                      <span
-                        key={i}
-                        className="w-1 h-1 rounded-full bg-violet-400 animate-bounce"
-                        style={{ animationDelay: `${i * 150}ms` }}
-                      />
-                    ))}
-                  </div>
-                  视频生成通常需要 2～10 分钟，请保持页面打开
-                </div>
-              )}
-
-              {videoError && (
-                <div className="flex items-start gap-2 text-xs text-rose-400/80 bg-rose-500/5 border border-rose-500/15 rounded-lg px-3 py-2">
-                  <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />
-                  <span>{videoError}</span>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+        <StoryboardStudio
+          key={dream.id}
+          dream={dream}
+          onSaved={setDream}
+          onRegenerateShot={handleRegenerateStoryboardShot}
+          regeneratingScenes={regenScenes}
+        />
+        {sceneError && <p className="rounded-lg border border-rose-500/15 bg-rose-500/5 px-3 py-2 text-xs text-rose-300/80" role="alert">{sceneError}</p>}
 
         {/* ── 人物 ── */}
         {structured.characters.length > 0 && (
@@ -1106,7 +1046,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
         {/* ── 叙事 ── */}
         <section>
           <h2 className="text-sm font-medium text-white/50 mb-4">叙事</h2>
-          <p className="text-sm text-white/60 leading-relaxed">
+          <p className="dream-prose text-sm text-dream-subtle">
             {structured.narrative.summary}
           </p>
         </section>
@@ -1124,7 +1064,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                   <span className="text-sm text-white/60 w-20 flex-shrink-0">{emotion.type}</span>
                   <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-pink-500 to-rose-400 rounded-full"
+                      className="dream-emotion-bar"
                       style={{ width: `${(emotion.intensity / 10) * 100}%` }}
                     />
                   </div>
@@ -1156,20 +1096,14 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
           </section>
         )}
 
-        {/* ── 原始口述 ── */}
-        <section>
-          <h2 className="text-sm font-medium text-white/50 mb-4">原始口述</h2>
-          <p className="text-sm text-white/40 leading-relaxed whitespace-pre-wrap">
-            {dream.rawText}
-          </p>
-        </section>
+        <DreamEntryEditor dream={dream} onSaved={setDream} />
 
         {/* ── AI 梦境解读 ── */}
-        <section className="rounded-xl border border-violet-500/15 bg-violet-500/[0.04] p-5">
+        <section className="dream-accent-panel">
           <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
             <div className="min-w-0 flex-1 space-y-1.5">
               <h2 className="text-sm font-medium text-white/70 flex items-center gap-2">
-                <Brain size={14} className="text-violet-400 shrink-0" />
+                <Brain size={14} className="dream-accent-icon shrink-0" />
                 AI 梦境解读
               </h2>
               <p className="text-xs text-white/35 leading-relaxed text-pretty">
@@ -1192,7 +1126,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                   <ChevronDown size={12} className={`shrink-0 transition-transform ${interpretMenuOpen ? "rotate-180" : ""}`} />
                 </button>
                 {interpretMenuOpen && (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-white/10 bg-[#14141c] shadow-xl overflow-hidden sm:left-auto sm:right-0 sm:min-w-[13rem] sm:w-52">
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-white/10 bg-[var(--color-card)] shadow-xl overflow-hidden sm:left-auto sm:right-0 sm:min-w-[13rem] sm:w-52">
                     {LLM_MODEL_OPTIONS.map((m) => (
                       <button
                         key={m.value}
@@ -1203,7 +1137,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                           setInterpretMenuOpen(false);
                         }}
                         className={`w-full px-3 py-2.5 text-left text-xs hover:bg-white/10 ${
-                          interpretModel === m.value ? "text-violet-300 bg-violet-500/10" : "text-white/65"
+                          interpretModel === m.value ? "dream-accent-menu-active" : "text-white/65"
                         }`}
                       >
                         {m.label}
@@ -1216,7 +1150,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
                 type="button"
                 onClick={handleDreamInterpret}
                 disabled={interpretLoading}
-                className="flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg bg-violet-500/25 hover:bg-violet-500/35 text-sm text-violet-200 border border-violet-500/35 disabled:opacity-45"
+                className="dream-accent-btn flex shrink-0 disabled:opacity-45"
               >
                 {interpretLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                 {interpretText ? "重新解读" : "生成解读"}
@@ -1230,7 +1164,7 @@ ${dream.structured.anomalies.map((a) => `- ${a.description} [${a.type}]`).join("
             </div>
           )}
           {interpretText ? (
-            <div className="text-sm text-white/70 leading-relaxed whitespace-pre-wrap border border-white/5 rounded-lg bg-black/20 px-4 py-3">
+            <div className="dream-prose text-sm text-dream-subtle whitespace-pre-wrap border border-white/5 rounded-lg bg-black/20 px-4 py-3">
               {interpretText}
             </div>
           ) : (

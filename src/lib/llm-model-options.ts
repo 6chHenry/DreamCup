@@ -13,6 +13,12 @@ export type LlmModelOption = {
 
 export const LLM_MODEL_OPTIONS: LlmModelOption[] = [
   {
+    value: "kimi-k3",
+    label: "Kimi K3",
+    apiUrl: "https://api.kimi.com/coding/v1",
+    apiKey: "",
+  },
+  {
     value: "gpt-5.4-mini",
     label: "GPT 5.4 Mini",
     apiUrl: publicEnv("NEXT_PUBLIC_LLM_OPENCLAUDECODE_URL") || "https://www.openclaudecode.cn/v1",
@@ -32,7 +38,7 @@ export const LLM_MODEL_OPTIONS: LlmModelOption[] = [
   },
 ];
 
-export const DEFAULT_LLM_MODEL = "gpt-5.4-mini";
+export const DEFAULT_LLM_MODEL = "kimi-k3";
 
 /** localStorage：与首页所选文字模型同步 */
 export const LLM_MODEL_STORAGE_KEY = "dreamcup-llm-model";
@@ -61,20 +67,14 @@ export function writeStoredLlmModel(value: string): void {
   }
 }
 
-/** 用于构建 fetch 头：与当前（或默认）选项一致，并在缺 key 时回退到首个可用的配置（优先 GPT）。 */
+/** 浏览器只声明模型和网关；Kimi 等无公开密钥的选项由服务端读取对应密钥。 */
 export function buildHeadersForStoredOrDefaultModel(): Record<string, string> {
   const preferred = getLlmModelOption(readStoredLlmModel());
-  const order = [
-    preferred,
-    getLlmModelOption(DEFAULT_LLM_MODEL),
-    ...LLM_MODEL_OPTIONS.filter((m) => m.value !== preferred.value && m.value !== DEFAULT_LLM_MODEL),
-  ];
-  const config = order.find((m) => m.apiUrl && m.apiKey) ?? preferred;
   const h: Record<string, string> = {};
-  if (config.apiUrl && config.apiKey) {
-    h["x-api-url"] = config.apiUrl;
-    h["x-api-key"] = config.apiKey;
-    h["x-model"] = config.value;
+  if (preferred.apiUrl) {
+    h["x-api-url"] = preferred.apiUrl;
+    h["x-model"] = preferred.value;
+    if (preferred.apiKey) h["x-api-key"] = preferred.apiKey;
   }
   return h;
 }

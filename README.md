@@ -22,6 +22,16 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## 当前功能与离线记录
+
+- 快速文字记录无需模型 API，支持标题、日期、标签、清醒梦和浏览器草稿恢复。
+- 日志支持全文搜索、类型筛选、ZIP 导入和 JSON 数据备份。
+- AI 语音转写、润色、结构化、记忆追问、场景生图与视频流程保留，需配置可用的外部服务。
+- 梦境详情提供放映室：可编辑分镜、旁白、运镜、时长、转场和画幅，并无需 API 连续预览。
+- 完整成片工作台支持逐镜头任务、失败重试、FFmpeg 转场、可选 TTS/背景音与 MP4 下载；离线样片无需外部 API。
+- 视频管线与后续模型/配音路线见 `docs/video-pipeline.md`、`docs/product-ambitions.md`。
+- 详细进度与后续计划见 `next_stage_plan.md`。
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

@@ -21,9 +21,9 @@ export default function JournalTimeline({
 }: JournalTimelineProps) {
   if (dreams.length === 0) {
     return (
-      <div className="text-center py-20 text-white/30">
-        <p className="text-lg mb-2">还没有梦境记录</p>
-        <p className="text-sm">点击录音按钮开始记录你的第一个梦</p>
+      <div className="text-center py-20 text-dream-muted">
+        <p className="text-lg mb-2 font-light">还没有梦境记录</p>
+        <p className="text-sm">像雾一样，第一个梦尚未成形</p>
       </div>
     );
   }
@@ -43,9 +43,9 @@ export default function JournalTimeline({
       {Object.entries(groupedByDate).map(([date, dateDreams]) => (
         <div key={date}>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-2 h-2 rounded-full bg-white/35 ring-4 ring-white/[0.06]" />
-            <h3 className="text-sm font-medium text-white/50">{date}</h3>
-            <div className="flex-1 h-px bg-white/10" />
+            <div className="w-2 h-2 rounded-full bg-[var(--dream-moon)]/50 shadow-[0_0_12px_rgba(180,200,255,0.2)] ring-4 ring-white/[0.04]" />
+            <h3 className="text-sm font-normal tracking-wide text-dream-subtle">{date}</h3>
+            <div className="flex-1 h-px bg-gradient-to-r from-white/12 to-transparent" />
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {dateDreams.map((dream) => (

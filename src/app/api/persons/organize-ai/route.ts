@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     const { apiUrl, apiKey, model } = resolveLlmPreferClientKeyElseOpenCodeGpt(request.headers);
     if (!apiUrl || !apiKey) {
       return NextResponse.json(
-        { error: "未配置文本模型（请在请求头传入 x-api-url / x-api-key，或配置 OPENCLAUDECODE_* / GEMINI_*）" },
+        { error: model === "kimi-k3" ? "请在 .env.local 填写 KIMI_API_KEY 后重启应用" : "未配置所选文本模型的服务端密钥" },
         { status: 500 }
       );
     }

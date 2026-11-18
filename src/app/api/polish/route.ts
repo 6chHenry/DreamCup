@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const { apiUrl, apiKey, model } = resolveOpenAICompatLLM(request.headers);
 
     if (!apiUrl || !apiKey || !model) {
-      return NextResponse.json({ error: "LLM API not configured" }, { status: 500 });
+      return NextResponse.json({ error: model === "kimi-k3" ? "请在 .env.local 填写 KIMI_API_KEY 后重启应用" : "LLM API not configured" }, { status: 500 });
     }
 
     let messages: Array<{ role: string; content: string }> = [];

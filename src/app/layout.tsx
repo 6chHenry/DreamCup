@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { dreamHeadlineFont } from "@/lib/fonts";
+import { dreamBodyFont, dreamHeadlineFont, dreamProseFont } from "@/lib/fonts";
 import DreamEffects from "@/components/DreamEffects";
 
 export const metadata: Metadata = {
@@ -16,13 +16,13 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`h-full antialiased dark ${dreamHeadlineFont.variable}`}
-      // DevTools / extensions (or mobile preview) may inject -webkit-touch-callout on <html> only on the client.
+      className={`h-full antialiased dark ${dreamHeadlineFont.variable} ${dreamBodyFont.variable} ${dreamProseFont.variable}`}
       suppressHydrationWarning
     >
       <body className="dream-body min-h-full font-sans">
         <div className="dream-veil" aria-hidden />
-        <div className="relative z-10 flex min-h-full flex-col">
+        <div className="dream-grain" aria-hidden />
+        <div className="relative z-10 flex min-h-full flex-col dream-page-root">
           {children}
           <DreamEffects />
         </div>

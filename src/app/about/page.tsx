@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between gap-2 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#05040c]/75 backdrop-blur-md">
+      <header className="dream-site-header">
         <div className="flex items-center gap-2.5 min-w-0">
           <Link
             href="/"
@@ -19,8 +19,8 @@ export default function AboutPage() {
           >
             <ArrowLeft size={16} className="text-white/80" />
           </Link>
-          <Moon className="shrink-0 text-sky-100/70" size={20} strokeWidth={1.5} />
-          <h1 className="text-base sm:text-lg font-medium text-[#f0f1fa] truncate">关于掬梦</h1>
+          <Moon className="dream-moon-icon shrink-0" size={20} strokeWidth={1.5} />
+          <h1 className="dream-title text-base sm:text-lg font-normal truncate">关于掬梦</h1>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2">
           <Link
@@ -42,14 +42,14 @@ export default function AboutPage() {
 
       <main className="flex-1 px-5 sm:px-6 py-12 md:py-16 max-w-2xl mx-auto w-full">
         <p className="text-[10px] sm:text-xs uppercase tracking-[0.25em] text-white/40 mb-3">DreamCup</p>
-        <h2 className="text-2xl sm:text-3xl font-light text-white/95 leading-snug mb-8">
+        <h2 className={`dream-title dream-hero-glow text-2xl sm:text-3xl font-light leading-snug mb-8`}>
           在梦还没消散之前，把它轻轻捧住。
         </h2>
 
-        <div className="space-y-8 text-sm text-white/65 leading-relaxed">
+        <div className="dream-prose space-y-8 text-sm text-dream-subtle">
           <section className="space-y-3">
             <h3 className="text-sm font-medium text-white/85 flex items-center gap-2">
-              <Sparkles size={16} className="text-indigo-400 shrink-0" />
+              <Sparkles size={16} className="dream-accent-icon shrink-0" />
               初衷
             </h3>
             <p>
@@ -62,7 +62,7 @@ export default function AboutPage() {
 
           <section className="space-y-3">
             <h3 className="text-sm font-medium text-white/85">想解决什么</h3>
-            <ul className="list-disc pl-5 space-y-2 marker:text-indigo-500/60">
+            <ul className="list-disc pl-5 space-y-2 marker:text-[var(--dream-accent-muted)]">
               <li>
                 <span className="text-white/75">降低记录门槛</span>：刚醒时手指发软、脑子发懵，能先说一段话或丢一段录音，比立刻写长文更现实。
               </li>
@@ -91,7 +91,7 @@ export default function AboutPage() {
             </p>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-sm text-indigo-300 hover:text-indigo-200 transition-colors"
+              className="dream-accent-link inline-flex items-center gap-2 text-sm no-underline hover:underline"
             >
               去记录梦境 <span aria-hidden>→</span>
             </Link>

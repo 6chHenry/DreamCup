@@ -12,8 +12,7 @@ export function resolveOpenAICompatLLM(headers: Headers): {
   const headerUrl = headers.get("x-api-url")?.trim() ?? "";
   const model =
     headers.get("x-model")?.trim() ||
-    process.env.GEMINI_MODEL?.trim() ||
-    "gpt-5.4-mini";
+    "kimi-k3";
 
   const geminiUrl = process.env.GEMINI_API_URL?.trim() ?? "";
   const geminiKey = process.env.GEMINI_API_KEY?.trim() ?? "";
@@ -28,6 +27,14 @@ export function resolveOpenAICompatLLM(headers: Headers): {
 
   const host = headerUrl.toLowerCase();
   const isClaudeModel = model.toLowerCase().includes("claude");
+
+  if (host.includes("api.kimi.com") || model.toLowerCase() === "kimi-k3") {
+    return {
+      apiUrl: headerUrl || process.env.KIMI_API_URL?.trim() || "https://api.kimi.com/coding/v1",
+      apiKey: process.env.KIMI_API_KEY?.trim() || "",
+      model,
+    };
+  }
 
   if (host.includes("openclaudecode.cn")) {
     const apiUrl =
@@ -58,17 +65,31 @@ export function resolveOpenAICompatLLM(headers: Headers): {
   }
 
   if (!headerUrl) {
+    if (model.toLowerCase() === "kimi-k3") {
+      return {
+        apiUrl: process.env.KIMI_API_URL?.trim() || "https://api.kimi.com/coding/v1",
+        apiKey: process.env.KIMI_API_KEY?.trim() || "",
+        model,
+      };
+    }
     return { apiUrl: geminiUrl, apiKey: geminiKey, model };
   }
 
   return { apiUrl: headerUrl, apiKey: geminiKey, model };
 }
 
-const CLIENT_OR_SERVER_GPT_DEFAULT_MODEL = "gpt-5.4-mini";
+function resolveKimiServerLLM(model: string) {
+  return {
+    apiUrl: process.env.KIMI_API_URL?.trim() || "https://api.kimi.com/coding/v1",
+    apiKey: process.env.KIMI_API_KEY?.trim() || "",
+    model,
+  };
+}
+
+const SERVER_DEFAULT_LLM_MODEL = "kimi-k3";
 
 /**
- * 优先使用请求里的 x-api-key（浏览器 NEXT_PUBLIC 与所选模型）；若无则避免落到 Gemini/4Router，
- * 改用服务端 OpenCode GPT + gpt-5.4-mini（人物库整理、梦境解读等共用）。
+ * 优先使用请求里的 x-api-key（浏览器 NEXT_PUBLIC 与所选模型）；服务端默认使用 Kimi K3。
  */
 export function resolveLlmPreferClientKeyElseOpenCodeGpt(requestHeaders: Headers): {
   apiUrl: string;
@@ -80,6 +101,15 @@ export function resolveLlmPreferClientKeyElseOpenCodeGpt(requestHeaders: Headers
     return resolveOpenAICompatLLM(requestHeaders);
   }
 
+  const requestedModel = requestHeaders.get("x-model")?.trim() || SERVER_DEFAULT_LLM_MODEL;
+  const requestedUrl = requestHeaders.get("x-api-url")?.trim() ?? "";
+  if (requestedModel.toLowerCase() === "kimi-k3" || requestedUrl.includes("api.kimi.com")) {
+    return resolveOpenAICompatLLM(requestHeaders);
+  }
+  if (!requestHeaders.has("x-model") && !requestHeaders.has("x-api-url")) {
+    return resolveKimiServerLLM(SERVER_DEFAULT_LLM_MODEL);
+  }
+
   const ocUrl =
     process.env.OPENCLAUDECODE_API_URL?.trim() || "https://www.openclaudecode.cn/v1";
   const ocKey =
@@ -87,9 +117,9 @@ export function resolveLlmPreferClientKeyElseOpenCodeGpt(requestHeaders: Headers
     process.env.OPENCLAUDECODE_API_KEY?.trim() ||
     "";
   if (ocKey) {
-    let model = requestHeaders.get("x-model")?.trim() || CLIENT_OR_SERVER_GPT_DEFAULT_MODEL;
+    let model = requestHeaders.get("x-model")?.trim() || SERVER_DEFAULT_LLM_MODEL;
     if (model.toLowerCase().includes("gemini")) {
-      model = CLIENT_OR_SERVER_GPT_DEFAULT_MODEL;
+      model = SERVER_DEFAULT_LLM_MODEL;
     }
     return { apiUrl: ocUrl, apiKey: ocKey, model };
   }
@@ -110,6 +140,7 @@ export function buildLLMRequestBody(
 ): Record<string, unknown> {
   const isClaudeModel = model.toLowerCase().includes("claude");
   const isDoubaoModel = model.toLowerCase().includes("doubao") || model.toLowerCase().includes("seed");
+  const isKimiK3 = model.toLowerCase() === "kimi-k3";
 
   const body: Record<string, unknown> = {
     model,
@@ -117,7 +148,7 @@ export function buildLLMRequestBody(
   };
 
   if (options?.temperature !== undefined) {
-    body.temperature = options.temperature;
+    body.temperature = isKimiK3 ? 1 : options.temperature;
   }
 
   if (isClaudeModel) {

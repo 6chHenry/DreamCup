@@ -10,10 +10,10 @@ const PHRASES = [
   "醒来仍温热的那一半秒。",
 ];
 
-const TYPE_MS = 88;
-const DELETE_MS = 52;
-const PAUSE_AFTER_TYPE_MS = 2400;
-const PAUSE_BEFORE_DELETE_MS = 380;
+const TYPE_MS = 92;
+const DELETE_MS = 54;
+const PAUSE_AFTER_TYPE_MS = 2600;
+const PAUSE_BEFORE_DELETE_MS = 400;
 
 type Phase = "typing" | "pause" | "deleting";
 
@@ -52,20 +52,19 @@ export default function DreamHeroHeadline() {
       id = setTimeout(() => {
         setPhraseIndex((i) => (i + 1) % PHRASES.length);
         setPhase("typing");
-      }, 180);
+      }, 200);
     }
     return () => clearTimeout(id);
   }, [phase, displayText]);
 
   return (
     <h2
-      className={`${dreamHeadlineFont.className} mb-2 flex min-h-[2.75rem] flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-center text-[1.65rem] font-light leading-snug tracking-wide sm:text-[1.85rem] text-[#f2f3fb]`}
-      style={{ textShadow: "0 0 40px rgba(200, 210, 255, 0.12)" }}
+      className={`${dreamHeadlineFont.className} dream-hero-glow mb-3 flex min-h-[2.85rem] flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-center text-[1.7rem] font-light leading-snug tracking-[0.06em] sm:text-[1.9rem] text-[var(--dream-pearl)]`}
       aria-live="polite"
     >
-      <span>{displayText}</span>
+      <span className="opacity-95">{displayText}</span>
       <span
-        className="dream-hero-cursor inline-block h-[1.32em] w-px shrink-0 self-center rounded-full bg-white/50"
+        className="dream-hero-cursor inline-block h-[1.32em] w-px shrink-0 self-center rounded-full bg-white/40"
         aria-hidden
       />
     </h2>

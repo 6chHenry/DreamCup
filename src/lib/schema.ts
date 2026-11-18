@@ -100,7 +100,7 @@ export const SensorySchema = z.object({
 
 export const AnomalySchema = z.object({
   description: z.string(),
-  type: z.enum(["physics_violation", "spatial_jump", "time_distortion", "identity_shift", "other"]),
+  type: z.enum(["physics_violation", "spatial_jump", "time_distortion", "identity_shift", "other"]).catch("other"),
 });
 
 export const DreamMetaSchema = z.object({
@@ -171,17 +171,83 @@ export const StyleGuideSchema = z.object({
   characterAnchors: z.record(z.string(), z.string()).optional(),
 });
 
+export const StoryboardShotSchema = z.object({
+  id: z.string(),
+  sceneIndex: z.number().int().min(0),
+  title: z.string(),
+  description: z.string(),
+  narration: z.string(),
+  cameraMotion: z.enum(["still", "push-in", "pull-back", "pan-left", "pan-right", "drift"]),
+  duration: z.number().min(2).max(15),
+  transition: z.enum(["fade", "dissolve", "cut"]),
+  imagePrompt: z.string(),
+  videoPrompt: z.string(),
+});
+
+export const DreamStoryboardSchema = z.object({
+  version: z.literal(1),
+  aspectRatio: z.enum(["16:9", "9:16", "1:1"]),
+  title: z.string(),
+  shots: z.array(StoryboardShotSchema).max(12),
+  updatedAt: z.string(),
+});
+
+export const RenderShotTaskSchema = z.object({
+  shotId: z.string(),
+  status: z.enum(["queued", "running", "waiting_api", "ready", "failed", "cancelled"]),
+  provider: z.enum(["storyboard_preview", "grok", "jimeng", "comfyui_h3", "generic"]),
+  attempts: z.number().int().min(0),
+  providerRequestId: z.string().optional(),
+  providerModel: z.string().optional(),
+  fallbackReason: z.string().optional(),
+  videoUrl: z.string().optional(),
+  narrationUrl: z.string().optional(),
+  error: z.string().optional(),
+  startedAt: z.string().optional(),
+  completedAt: z.string().optional(),
+});
+
+export const VideoRenderJobSchema = z.object({
+  id: z.string(),
+  dreamId: z.string(),
+  status: z.enum(["queued", "running", "waiting_api", "ready", "failed", "cancelled"]),
+  stage: z.enum(["shots", "narration", "assembly", "complete"]),
+  mode: z.enum(["preview", "generated"]),
+  provider: z.enum(["storyboard_preview", "grok", "jimeng", "comfyui_h3", "generic"]),
+  narrationProvider: z.enum(["silent", "browser", "openai", "volcengine", "azure"]),
+  backgroundAudioUrl: z.string().optional(),
+  narrationVolume: z.number().min(0).max(2).default(1),
+  musicVolume: z.number().min(0).max(1).default(0.18),
+  showSubtitles: z.boolean().default(true),
+  generationQuality: z.enum(["draft", "quality"]).default("quality"),
+  storyboard: DreamStoryboardSchema,
+  shots: z.array(RenderShotTaskSchema),
+  subtitleUrl: z.string().optional(),
+  narrationTrackUrl: z.string().optional(),
+  musicTrackUrl: z.string().optional(),
+  projectUrl: z.string().optional(),
+  warnings: z.array(z.string()).optional(),
+  outputUrl: z.string().optional(),
+  error: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
 export const DreamSchema = z.object({
   id: z.string(),
   title: z.string(),
   rawText: z.string(),
+  tags: z.array(z.string()).optional(),
   structured: DreamStructuredSchema,
   audioUrl: z.string().optional(),
   audioFileName: z.string().optional(),
   scenes: z.array(DreamSceneImageSchema),
   sceneRenderPrompts: z.array(DreamScenePromptSchema).optional(),
   sceneStyleGuide: StyleGuideSchema.optional(),
+  storyboard: DreamStoryboardSchema.optional(),
+  activeRenderJobId: z.string().optional(),
   videoUrl: z.string().optional(),
+  sourceVideoUrl: z.string().optional(),
   aiInterpretation: z.string().optional(),
   userNotes: z.string().optional(),
   deletedAt: z.string().optional(),

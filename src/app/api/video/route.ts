@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
+import { randomUUID } from "crypto";
 import { llmFetch } from "@/lib/llm-fetch";
+import { getServerDataRoot } from "@/lib/server-data-root";
+import { buildVideoPrompt, videoDurationForShots } from "@/lib/storyboard";
+import type { DreamStoryboard } from "@/types/dream";
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -23,9 +29,145 @@ function videoErrTextSuggestsRouteUnsupported(msg: string): boolean {
   );
 }
 
+function extractFirstHttpUrl(text: string): string {
+  const match = text.match(/https?:\/\/[^\s"'<>\\)]+/i);
+  return match?.[0] || "";
+}
+
+function extractTextFromChatContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) => {
+      if (typeof part === "string") return part;
+      if (!part || typeof part !== "object") return "";
+      const p = part as Record<string, unknown>;
+      return typeof p.text === "string" ? p.text : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function extractVideoUrlFromJson(value: unknown): string {
+  if (typeof value === "string") return extractFirstHttpUrl(value);
+  if (!value || typeof value !== "object") return "";
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = extractVideoUrlFromJson(item);
+      if (found) return found;
+    }
+    return "";
+  }
+
+  const obj = value as Record<string, unknown>;
+  for (const key of ["videoUrl", "video_url", "url", "output_url"]) {
+    const v = obj[key];
+    if (typeof v === "string") {
+      const found = extractFirstHttpUrl(v);
+      if (found) return found;
+    }
+  }
+
+  const choices = obj.choices;
+  if (Array.isArray(choices)) {
+    for (const choice of choices) {
+      if (!choice || typeof choice !== "object") continue;
+      const c = choice as Record<string, unknown>;
+      const message = c.message as Record<string, unknown> | undefined;
+      const delta = c.delta as Record<string, unknown> | undefined;
+      const content =
+        extractTextFromChatContent(message?.content) ||
+        extractTextFromChatContent(delta?.content) ||
+        extractTextFromChatContent(c.content);
+      const found = extractFirstHttpUrl(content);
+      if (found) return found;
+    }
+  }
+
+  for (const key of ["video", "data", "output", "result"]) {
+    const found = extractVideoUrlFromJson(obj[key]);
+    if (found) return found;
+  }
+
+  return "";
+}
+
+function extractVideoUrlFromText(text: string): string {
+  const direct = extractFirstHttpUrl(text);
+  if (direct) return direct;
+
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && line !== "data: [DONE]");
+
+  for (const line of lines) {
+    const jsonText = line.startsWith("data:") ? line.slice(5).trim() : line;
+    try {
+      const found = extractVideoUrlFromJson(JSON.parse(jsonText));
+      if (found) return found;
+    } catch {
+      // Some proxies return plain text chunks; keep scanning.
+    }
+  }
+
+  return "";
+}
+
+function videoExtFromUrlAndType(url: string, contentType: string): string {
+  const ct = contentType.toLowerCase();
+  if (ct.includes("video/webm")) return "webm";
+  if (ct.includes("quicktime")) return "mov";
+  if (ct.includes("video/mp4") || ct.includes("application/octet-stream")) return "mp4";
+
+  try {
+    const ext = new URL(url).pathname.split(".").pop()?.toLowerCase() || "";
+    if (["mp4", "webm", "mov"].includes(ext)) return ext;
+  } catch {
+    // Ignore malformed remote URL here; caller already validated it enough to fetch.
+  }
+
+  return "mp4";
+}
+
+async function cacheRemoteVideoUrl(videoUrl: string, apiKey: string): Promise<string | null> {
+  if (!/^https?:\/\//i.test(videoUrl)) return null;
+
+  const res = await llmFetch(videoUrl, {
+    headers: {
+      Accept: "video/*,*/*",
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.warn("Video cache: remote download failed", res.status, text.slice(0, 300));
+    return null;
+  }
+
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (buffer.length === 0) {
+    console.warn("Video cache: remote download returned empty body");
+    return null;
+  }
+
+  const videoDir = path.join(getServerDataRoot(), "video");
+  fs.mkdirSync(videoDir, { recursive: true });
+  const ext = videoExtFromUrlAndType(videoUrl, res.headers.get("content-type") || "");
+  const filename = `${randomUUID()}.${ext}`;
+  fs.writeFileSync(path.join(videoDir, filename), buffer);
+  return `/api/video-file/${encodeURIComponent(filename)}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { sceneImageUrls, dreamStructured } = await request.json();
+    const { sceneImageUrls, dreamStructured, storyboard } = await request.json() as {
+      sceneImageUrls?: string[];
+      dreamStructured?: Record<string, unknown>;
+      storyboard?: DreamStoryboard;
+    };
 
     if (!dreamStructured) {
       return NextResponse.json({ error: "No dream data provided" }, { status: 400 });
@@ -46,11 +188,11 @@ export async function POST(request: NextRequest) {
     );
 
     if (!grokApiUrl || !grokApiKey) {
-      const narrativeSummary = dreamStructured.narrative?.summary || "";
-      const sceneDescriptions = (dreamStructured.scenes || [])
+      const narrativeSummary = (dreamStructured.narrative as { summary?: string } | undefined)?.summary || "";
+      const sceneDescriptions = ((dreamStructured.scenes || []) as { description: string }[])
         .map((s: { description: string }, i: number) => `场景${i + 1}: ${s.description}`)
         .join("\n");
-      const emotionSummary = (dreamStructured.emotions || [])
+      const emotionSummary = ((dreamStructured.emotions || []) as { type: string; intensity: number }[])
         .map((e: { type: string; intensity: number }) => `${e.type}(强度${e.intensity})`)
         .join("、");
 
@@ -62,15 +204,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const narrativeSummary = dreamStructured.narrative?.summary || "";
-    const sceneDescriptions = (dreamStructured.scenes || [])
-      .map((s: { description: string }, i: number) => `场景${i + 1}: ${s.description}`)
+    const typedStructured = dreamStructured as {
+      narrative?: { summary?: string };
+      scenes?: { description: string }[];
+      emotions?: { type: string; intensity: number }[];
+    };
+    const narrativeSummary = typedStructured.narrative?.summary || "";
+    const sceneDescriptions = (typedStructured.scenes || [])
+      .map((scene, index) => `场景${index + 1}: ${scene.description}`)
       .join("; ");
-    const emotionSummary = (dreamStructured.emotions || [])
-      .map((e: { type: string; intensity: number }) => `${e.type}`)
-      .join(", ");
-
-    const videoPrompt = `A dreamlike cinematic video: ${sceneDescriptions}. Mood: ${emotionSummary}. Narrative: ${narrativeSummary}`;
+    const emotionSummary = (typedStructured.emotions || []).map((emotion) => emotion.type).join(", ");
+    const firstShot = storyboard?.shots?.[0];
+    const videoPrompt = firstShot
+      ? `${firstShot.videoPrompt || buildVideoPrompt(firstShot)}\n\nThis is the opening shot of a larger dream film titled \"${storyboard?.title || "Dream"}\". Establish visual motifs that can continue through the following shots.`
+      : `A dreamlike cinematic video: ${sceneDescriptions}. Mood: ${emotionSummary}. Narrative: ${narrativeSummary}`;
+    const videoDuration = storyboard ? videoDurationForShots(storyboard.shots) : 10;
+    const aspectRatio = storyboard?.aspectRatio || "16:9";
 
     const urls: string[] = Array.isArray(sceneImageUrls) ? sceneImageUrls.filter(Boolean) : [];
     const startImageUrl = typeof urls[0] === "string" ? urls[0] : "";
@@ -85,8 +234,8 @@ export async function POST(request: NextRequest) {
       const b: Record<string, unknown> = {
         model: grokVideoModel,
         prompt: videoPrompt,
-        duration: 10,
-        aspect_ratio: "16:9",
+        duration: videoDuration,
+        aspect_ratio: aspectRatio,
         resolution: "720p",
       };
       if (withFirstFrame && startImageUrl) {
@@ -105,6 +254,25 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify(body),
       });
 
+    const postChatVideo = () =>
+      llmFetch(`${grokApiUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${grokApiKey}`,
+        },
+        body: JSON.stringify({
+          model: grokVideoModel,
+          messages: [
+            {
+              role: "user",
+              content: `${videoPrompt}\n\nGenerate a ${videoDuration}-second ${aspectRatio} 720p video. Return the generated video URL when complete.`,
+            },
+          ],
+          stream: false,
+        }),
+      });
+
     let startRes = await postVideoStart(buildStartBody(canFirstFrame));
     let errorText = "";
 
@@ -121,6 +289,58 @@ export async function POST(request: NextRequest) {
     if (!startRes.ok) {
       console.error("Video generation start error:", errorText);
       const routeUnsupported = videoErrTextSuggestsRouteUnsupported(errorText);
+      if (routeUnsupported) {
+        const chatRes = await postChatVideo();
+        const chatText = await chatRes.text();
+        if (chatRes.ok) {
+          const chatVideoUrl = extractVideoUrlFromText(chatText);
+          if (chatVideoUrl) {
+            const cachedVideoUrl = await cacheRemoteVideoUrl(chatVideoUrl, grokApiKey).catch((error) => {
+              console.warn("Video cache error:", error);
+              return null;
+            });
+            if (!cachedVideoUrl) {
+              return NextResponse.json(
+                {
+                  status: "error",
+                  message: "视频已生成，但远程视频无法缓存到本地，当前地址可能无法直接播放",
+                  detail:
+                    "浏览器需要能访问远程视频源；当前环境对 assets.grok.com 解析/访问不稳定。可配置 LLM_HTTPS_PROXY 后重新生成并缓存。",
+                  sourceVideoUrl: chatVideoUrl,
+                  videoPrompt,
+                },
+                { status: 502 }
+              );
+            }
+            return NextResponse.json({
+              status: "video_ready",
+              videoUrl: cachedVideoUrl,
+              videoPrompt,
+              sourceVideoUrl: chatVideoUrl,
+            });
+          }
+          console.error("Video chat fallback: missing video URL", chatText);
+          return NextResponse.json(
+            {
+              status: "error",
+              message: "视频生成失败（chat/completions 未返回可解析的视频 URL）",
+              detail: chatText,
+              videoPrompt,
+            },
+            { status: 500 }
+          );
+        }
+        console.error("Video chat fallback error:", chatText);
+        return NextResponse.json(
+          {
+            status: "error",
+            message: "视频生成失败（chat/completions 兜底失败）",
+            detail: chatText,
+            videoPrompt,
+          },
+          { status: 500 }
+        );
+      }
       return NextResponse.json(
         {
           status: "error",
@@ -214,10 +434,29 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const cachedVideoUrl = await cacheRemoteVideoUrl(videoUrl, grokApiKey).catch((error) => {
+      console.warn("Video cache error:", error);
+      return null;
+    });
+    if (!cachedVideoUrl) {
+      return NextResponse.json(
+        {
+          status: "error",
+          message: "视频已生成，但远程视频无法缓存到本地，当前地址可能无法直接播放",
+          detail:
+            "浏览器需要能访问远程视频源；当前环境对视频资源域名解析/访问不稳定。可配置 LLM_HTTPS_PROXY 后重新生成并缓存。",
+          sourceVideoUrl: videoUrl,
+          videoPrompt,
+        },
+        { status: 502 }
+      );
+    }
+
     return NextResponse.json({
       status: "video_ready",
-      videoUrl,
+      videoUrl: cachedVideoUrl,
       videoPrompt,
+      sourceVideoUrl: videoUrl,
     });
   } catch (error) {
     console.error("Video generation error:", error);

@@ -8,6 +8,10 @@ import { pickReferencePersonForScene } from "@/lib/person-reference-match";
 import { findPersonForCharacter, personReferenceFilePath } from "@/lib/person-store";
 import type { DreamStructured, StyleGuide } from "@/types/dream";
 import { generateGptImage2SceneImage } from "@/lib/gpt-image-generate";
+import { generateH3Image, stableGenerationSeed } from "@/lib/comfyui-local";
+import { materializeMedia } from "@/lib/media-files";
+import { getServerDataRoot } from "@/lib/server-data-root";
+import path from "path";
 import {
   DEFAULT_SCENE_IMAGE_MODEL,
   isGptImage2PipelineModel,
@@ -160,7 +164,13 @@ async function generateSceneImagesFromPrompts(
   dreamStructured: DreamStructured,
   imageModel: SceneImageModelId,
   batch?: { offset: number; size: number },
-  styleGuide?: StyleGuide
+  styleGuide?: StyleGuide,
+  localOptions: {
+    aspectRatio: "16:9" | "9:16" | "1:1";
+    visualContinuity: boolean;
+    previousSceneImageUrl?: string;
+    continuityKey: string;
+  } = { aspectRatio: "16:9", visualContinuity: false, continuityKey: "local" },
 ): Promise<
   Array<{
     sceneIndex: number;
@@ -196,6 +206,7 @@ async function generateSceneImagesFromPrompts(
   }> = [];
 
   let didGeneratePriorScene = batch != null && batch.offset > 0;
+  let previousH3ImageUrl = localOptions.previousSceneImageUrl;
   const gapMsRaw = Number(process.env.GROK_IMAGE_SCENE_GAP_MS);
   const sceneGapMs = Number.isFinite(gapMsRaw) && gapMsRaw >= 0 ? gapMsRaw : 2800;
 
@@ -203,7 +214,7 @@ async function generateSceneImagesFromPrompts(
     const prompt = scenePrompt.prompts[0];
     if (!prompt) continue;
 
-    if (didGeneratePriorScene && sceneGapMs > 0) {
+    if (didGeneratePriorScene && sceneGapMs > 0 && imageModel !== "minimax-h3-image-local") {
       await sleep(sceneGapMs);
     }
 
@@ -267,6 +278,30 @@ async function generateSceneImagesFromPrompts(
             });
           }
         }
+      } else if (imageModel === "minimax-h3-image-local") {
+        const references = refBase64
+          ? [{ bytes: Buffer.from(refBase64, "base64"), filename: refPerson?.referenceImageFilename || "reference.png" }]
+          : [];
+        const referenceNotes = refBase64
+          ? ["<Picture 1> 是人物外貌与服装参考，只继承人物身份，不复制其背景、姿势或构图。"]
+          : [];
+        if (localOptions.visualContinuity && previousH3ImageUrl) {
+          try {
+            const referenceDirectory = path.join(getServerDataRoot(), "scene-images", "references");
+            const previousPath = await materializeMedia(previousH3ImageUrl, referenceDirectory, `before-scene-${scenePrompt.sceneIndex}`);
+            references.push({ bytes: fs.readFileSync(previousPath), filename: path.basename(previousPath) });
+            referenceNotes.push(`<Picture ${references.length}> 是前一镜头画面，仅参考全片画风、色调、光线和反复出现的场景元素；若文本明确切换空间，不要照搬旧背景或构图。`);
+          } catch (error) {
+            console.warn(`Scene ${scenePrompt.sceneIndex}: previous-frame reference unavailable`, error);
+          }
+        }
+        const h3Prompt = [...referenceNotes, promptWithStyle].join("\n");
+        const seed = stableGenerationSeed(localOptions.continuityKey, scenePrompt.sceneIndex, h3Prompt);
+        const generatedUrl = await generateH3Image(h3Prompt, references, { seed, aspectRatio: localOptions.aspectRatio });
+        const localPath = await materializeMedia(generatedUrl, path.join(getServerDataRoot(), "scene-images"), `scene-${scenePrompt.sceneIndex}-${seed}`);
+        const imageUrl = `/api/media/scene-images/${encodeURIComponent(path.basename(localPath))}`;
+        previousH3ImageUrl = imageUrl;
+        sceneImages.push({ sceneIndex: scenePrompt.sceneIndex, imageUrl, prompt: h3Prompt });
       } else {
         const authHeaders = {
           "Content-Type": "application/json",
@@ -402,6 +437,10 @@ export async function POST(request: NextRequest) {
       /** 与 imageBatchSize 同时传入时只生成本批；不传则一次生成全部 */
       imageBatchOffset?: number;
       imageBatchSize?: number;
+      aspectRatio?: "16:9" | "9:16" | "1:1";
+      visualContinuity?: boolean;
+      previousSceneImageUrl?: string;
+      continuityKey?: string;
     };
 
     const {
@@ -412,7 +451,6 @@ export async function POST(request: NextRequest) {
       styleGuide: incomingStyleGuide,
     } = body;
     const imageModel = parseSceneImageModelId(imageModelRaw) ?? DEFAULT_SCENE_IMAGE_MODEL;
-
     if (!dreamStructured) {
       return NextResponse.json({ error: "No dream data provided" }, { status: 400 });
     }
@@ -435,7 +473,13 @@ export async function POST(request: NextRequest) {
           dreamStructured,
           imageModel,
           batch,
-          incomingStyleGuide
+          incomingStyleGuide,
+          {
+            aspectRatio: body.aspectRatio ?? "16:9",
+            visualContinuity: body.visualContinuity === true,
+            previousSceneImageUrl: imageModel === "minimax-h3-image-local" ? body.previousSceneImageUrl : undefined,
+            continuityKey: body.continuityKey?.trim() || "local",
+          },
         );
         const total = incomingScenePrompts.length;
         const imageBatch =
@@ -465,7 +509,7 @@ export async function POST(request: NextRequest) {
     const { apiUrl, apiKey, model } = resolveOpenAICompatLLM(request.headers);
 
     if (!apiUrl || !apiKey) {
-      return NextResponse.json({ error: "LLM API not configured" }, { status: 500 });
+      return NextResponse.json({ error: model === "kimi-k3" ? "请在 .env.local 填写 KIMI_API_KEY 后重启应用" : "LLM API not configured" }, { status: 500 });
     }
 
     let promptsResult: PromptsWithStyleGuide;

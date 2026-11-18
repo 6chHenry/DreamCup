@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         {
           error: "LLM API not configured",
           detail:
-            "请配置 NEXT_PUBLIC_LLM_* 或在 .env.local 中配置对应服务商的 OPENCLAUDECODE_* / GEMINI_* / DOUBAO_*。",
+            model === "kimi-k3" ? "请在 .env.local 填写 KIMI_API_KEY 后重启应用。" : "请配置对应服务商的服务端密钥。",
         },
         { status: 500 }
       );

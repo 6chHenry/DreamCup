@@ -120,10 +120,83 @@ export interface StyleGuide {
   characterAnchors?: Record<string, string>;
 }
 
+export type CameraMotion = "still" | "push-in" | "pull-back" | "pan-left" | "pan-right" | "drift";
+export type SceneTransition = "fade" | "dissolve" | "cut";
+
+export interface StoryboardShot {
+  id: string;
+  sceneIndex: number;
+  title: string;
+  description: string;
+  narration: string;
+  cameraMotion: CameraMotion;
+  duration: number;
+  transition: SceneTransition;
+  imagePrompt: string;
+  videoPrompt: string;
+}
+
+export interface DreamStoryboard {
+  version: 1;
+  aspectRatio: "16:9" | "9:16" | "1:1";
+  title: string;
+  shots: StoryboardShot[];
+  updatedAt: string;
+}
+
+export type RenderJobStatus = "queued" | "running" | "waiting_api" | "ready" | "failed" | "cancelled";
+export type RenderJobStage = "shots" | "narration" | "assembly" | "complete";
+export type VideoRenderProvider = "storyboard_preview" | "grok" | "jimeng" | "comfyui_h3" | "generic";
+export type NarrationProvider = "silent" | "browser" | "openai" | "volcengine" | "azure";
+export type VideoGenerationQuality = "draft" | "quality";
+
+export interface RenderShotTask {
+  shotId: string;
+  status: RenderJobStatus;
+  provider: VideoRenderProvider;
+  attempts: number;
+  providerRequestId?: string;
+  providerModel?: string;
+  fallbackReason?: string;
+  videoUrl?: string;
+  narrationUrl?: string;
+  error?: string;
+  startedAt?: string;
+  completedAt?: string;
+}
+
+export interface VideoRenderJob {
+  id: string;
+  dreamId: string;
+  status: RenderJobStatus;
+  stage: RenderJobStage;
+  mode: "preview" | "generated";
+  provider: VideoRenderProvider;
+  narrationProvider: NarrationProvider;
+  backgroundAudioUrl?: string;
+  narrationVolume: number;
+  musicVolume: number;
+  showSubtitles: boolean;
+  generationQuality?: VideoGenerationQuality;
+  storyboard: DreamStoryboard;
+  shots: RenderShotTask[];
+  subtitleUrl?: string;
+  narrationTrackUrl?: string;
+  musicTrackUrl?: string;
+  projectUrl?: string;
+  warnings?: string[];
+  outputUrl?: string;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Dream {
   id: string;
   title: string;
   rawText: string;
+  /** 用户手动整理的标签；不依赖模型生成 */
+  tags?: string[];
   structured: DreamStructured;
   audioUrl?: string;
   audioFileName?: string;
@@ -132,7 +205,13 @@ export interface Dream {
   sceneRenderPrompts?: DreamScenePrompt[];
   /** 生图时使用的全局视觉风格锚点，与 sceneRenderPrompts 同步保存 */
   sceneStyleGuide?: StyleGuide;
+  /** 视频前的可编辑分镜；保留文字、画面与镜头设计 */
+  storyboard?: DreamStoryboard;
+  /** 最近的视频合成任务；历史任务保存在 data/render-jobs.json */
+  activeRenderJobId?: string;
   videoUrl?: string;
+  /** 视频生成服务返回的原始远程地址；videoUrl 可能是本地缓存后的可播放地址 */
+  sourceVideoUrl?: string;
   /** 详情页「AI 梦境解读」生成后持久化 */
   aiInterpretation?: string;
   /** 若存在：仅从日志列表隐藏，**不**从 data/dreams.json 删除正文与图片等数据 */
@@ -149,6 +228,15 @@ export interface ProbeMessage {
   role: "user" | "assistant" | "system";
   content: string;
   createdAt: string;
+  proposal?: ProbeProposal;
+}
+
+export interface ProbeProposal {
+  description: string;
+  basis: string;
+  confidence: "low" | "medium";
+  mode: "single" | "multiple";
+  options: { id: string; label: string }[];
 }
 
 export type DreamFlowStep = "recording" | "transcribing" | "polishing" | "parsing" | "probing" | "rendering" | "video" | "complete";

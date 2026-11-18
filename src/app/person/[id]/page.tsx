@@ -234,7 +234,7 @@ export default function PersonDetailPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#05040c]/75 backdrop-blur-md">
+      <header className="dream-site-header">
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"
@@ -244,8 +244,8 @@ export default function PersonDetailPage() {
           >
             <ArrowLeft size={16} className="text-white/80" />
           </button>
-          <Moon className="text-sky-100/70 shrink-0" size={20} strokeWidth={1.5} />
-          <h1 className="text-base sm:text-lg font-medium text-[#f0f1fa]">人物详情</h1>
+          <Moon className="dream-moon-icon shrink-0" size={20} strokeWidth={1.5} />
+          <h1 className="dream-title text-base sm:text-lg font-normal">人物详情</h1>
         </div>
         <button
           onClick={() => router.push("/persons")}

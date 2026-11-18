@@ -228,11 +228,11 @@ export default function VoiceRecorder({ onRecordingComplete, disabled }: VoiceRe
           >
             <div className="relative">
               <motion.div
-                className="absolute inset-0 rounded-full bg-red-500/20"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
+                className="dream-recording-ring absolute inset-0 rounded-full"
+                animate={{ scale: [1, 1.28, 1] }}
+                transition={{ duration: 2.2, repeat: Infinity }}
               />
-              <div className="relative w-32 h-32 rounded-full bg-red-500/10 flex items-center justify-center border-2 border-red-500/50">
+              <div className="dream-recording-core relative">
                 <motion.div
                   className="flex gap-1 items-end h-8"
                   animate={isPaused ? {} : { opacity: [0.5, 1, 0.5] }}
@@ -241,7 +241,7 @@ export default function VoiceRecorder({ onRecordingComplete, disabled }: VoiceRe
                   {[1, 2, 3, 4, 5].map((i) => (
                     <motion.div
                       key={i}
-                      className="w-1 bg-red-500 rounded-full"
+                      className="dream-recording-bar"
                       animate={
                         isPaused
                           ? { height: 8 }
@@ -260,7 +260,7 @@ export default function VoiceRecorder({ onRecordingComplete, disabled }: VoiceRe
               </div>
             </div>
 
-            <p className="text-2xl font-mono text-white/80">{formatTime(duration)}</p>
+            <p className="text-2xl font-light tracking-widest text-white/75">{formatTime(duration)}</p>
 
             {liveTranscript && (
               <div className="w-full max-w-md rounded-xl bg-white/5 border border-white/10 p-3 max-h-32 overflow-y-auto">
@@ -278,7 +278,7 @@ export default function VoiceRecorder({ onRecordingComplete, disabled }: VoiceRe
               </button>
               <button
                 onClick={stopRecording}
-                className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center transition-colors"
+                className="dream-recording-stop"
               >
                 <Square size={24} />
               </button>

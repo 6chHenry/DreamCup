@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
       id: body.id || uuidv4(),
       title: body.title || "未命名梦境",
       rawText: body.rawText || "",
+      tags: Array.isArray(body.tags) ? body.tags.filter((tag: unknown): tag is string => typeof tag === "string") : [],
       structured: body.structured || {
         scenes: [],
         characters: [],
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
       scenes: body.scenes || [],
       sceneRenderPrompts: body.sceneRenderPrompts,
       videoUrl: body.videoUrl,
+      sourceVideoUrl: body.sourceVideoUrl,
       aiInterpretation: body.aiInterpretation,
       userNotes: body.userNotes,
       createdAt: body.createdAt || new Date().toISOString(),

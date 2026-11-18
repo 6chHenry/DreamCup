@@ -213,11 +213,11 @@ export default function PersonsPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#05040c]/75 backdrop-blur-md">
+      <header className="dream-site-header flex-wrap gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          <Moon className="shrink-0 text-sky-100/70" size={22} strokeWidth={1.5} />
+          <Moon className="dream-moon-icon shrink-0" size={22} strokeWidth={1.5} />
           <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-medium text-[#f0f1fa]">人物库</h1>
+            <h1 className="dream-title text-base sm:text-lg font-normal">人物库</h1>
             <span className="text-[10px] sm:text-xs text-white/32">{persons.length} 人</span>
           </div>
         </div>
